@@ -26,9 +26,7 @@ class _SchedulerSnapshot:
         self._stats: dict[str, Any] = {
             'harvest': 0,
             'plant': 0,
-            'water': 0,
-            'weed': 0,
-            'bug': 0,
+            'farming': 0,
             'steal': 0,
             'sell': 0,
             'total_actions': 0,

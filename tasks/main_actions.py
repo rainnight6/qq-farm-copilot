@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class TaskMainActionsMixin:
-    """提供一键收获/除草/除虫/浇水/施肥能力。"""
+    """提供一键收获/务农/施肥能力。"""
 
     engine: 'LocalBotEngine'
     ui: 'UI'
@@ -53,27 +53,19 @@ class TaskMainActionsMixin:
     def _run_feature_maintain_actions(
         self,
         *,
-        enable_weed: bool,
-        enable_bug: bool,
-        enable_water: bool,
+        enable_farming: bool,
     ) -> str | None:
-        """统一执行一键除草/除虫/浇水，共用确认计时器。"""
+        """统一执行一键务农，共用确认计时器。"""
         action_specs = []
-        if enable_weed:
-            action_specs.append((BTN_WEED, ActionType.WEED))
-        if enable_bug:
-            action_specs.append((BTN_BUG, ActionType.BUG))
-        if enable_water:
-            action_specs.append((BTN_WATER, ActionType.WATER))
+        if enable_farming:
+            action_specs.append((BTN_FARMING, ActionType.FARMING))
         if not action_specs:
             return None
         action_buttons = [button for button, _ in action_specs]
 
         logger.info(
-            '一键维护流程: 开始 | 除草={} 除虫={} 浇水={}',
-            enable_weed,
-            enable_bug,
-            enable_water,
+            '一键维护流程: 开始 | 务农={}',
+            enable_farming,
         )
 
         self.ui.device.screenshot()

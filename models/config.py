@@ -813,6 +813,67 @@ class AppConfig(ConfigModel):
         return out
 
     @classmethod
+    def _resolve_template_task_feature_keys(cls, template_data: dict) -> dict[str, set[str]]:
+        """从模板提取任务 feature 白名单。"""
+        tasks = template_data.get('tasks', {})
+        if not isinstance(tasks, dict):
+            return {}
+        out: dict[str, set[str]] = {}
+        for task_name, task_cfg in tasks.items():
+            name = str(task_name or '').strip()
+            if not name or not isinstance(task_cfg, dict):
+                continue
+            raw_features = task_cfg.get('features', {})
+            if not isinstance(raw_features, dict):
+                raw_features = {}
+            out[name] = {str(key) for key in raw_features.keys()}
+        return out
+
+    @classmethod
+    def _strip_unknown_task_features(cls, data: dict, template_data: dict) -> tuple[dict, bool]:
+        """按模板白名单清理历史残留 feature 字段。"""
+        if not isinstance(data, dict):
+            return data, False
+        tasks = data.get('tasks', {})
+        if not isinstance(tasks, dict):
+            return data, False
+
+        feature_keys = cls._resolve_template_task_feature_keys(template_data)
+        if not feature_keys:
+            return data, False
+
+        out_tasks = dict(tasks)
+        changed = False
+        for task_name, task_cfg in tasks.items():
+            task_key = str(task_name or '').strip()
+            if task_key not in feature_keys or not isinstance(task_cfg, dict):
+                continue
+
+            raw_features = task_cfg.get('features', {})
+            if not isinstance(raw_features, dict):
+                continue
+
+            allowed_keys = feature_keys[task_key]
+            filtered_features: dict[str, Any] = {}
+            for key, value in raw_features.items():
+                key_text = str(key)
+                if key_text in allowed_keys:
+                    filtered_features[key_text] = value
+            if filtered_features == raw_features:
+                continue
+
+            new_task_cfg = dict(task_cfg)
+            new_task_cfg['features'] = filtered_features
+            out_tasks[task_name] = new_task_cfg
+            changed = True
+
+        if not changed:
+            return data, False
+        out = dict(data)
+        out['tasks'] = out_tasks
+        return out, True
+
+    @classmethod
     def _same_structure_and_order(cls, left, right) -> bool:
         """递归比较配置内容与键顺序是否一致。"""
         if type(left) is not type(right):
@@ -905,10 +966,11 @@ class AppConfig(ConfigModel):
         if os.path.exists(config_file):
             user_data = cls._read_json_file(config_file)
             data = cls._deep_merge_dict(template_data, user_data)
+            data, features_trimmed = cls._strip_unknown_task_features(data, template_data)
             config = cls(**data)
             # 自动同步模板新增字段与键顺序，避免老用户本地配置顺序/结构漂移。
             normalized = config.model_dump()
-            if not cls._same_structure_and_order(user_data, normalized):
+            if features_trimmed or not cls._same_structure_and_order(user_data, normalized):
                 cls._atomic_write_json(config_file, normalized)
         else:
             if template_data:

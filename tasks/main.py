@@ -268,9 +268,7 @@ class TaskMain(
             self._run_feature_harvest()
 
         self._run_feature_maintain_actions(
-            enable_weed=features.auto_weed,
-            enable_bug=features.auto_bug,
-            enable_water=features.auto_water,
+            enable_farming=features.auto_farming,
         )
 
         # 自动扩建

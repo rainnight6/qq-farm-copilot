@@ -78,9 +78,7 @@ class BotVisionMixin:
         type_map = {
             ActionType.HARVEST: 'harvest',
             ActionType.PLANT: 'plant',
-            ActionType.WATER: 'water',
-            ActionType.WEED: 'weed',
-            ActionType.BUG: 'bug',
+            ActionType.FARMING: 'farming',
             ActionType.STEAL: 'steal',
             ActionType.SELL: 'sell',
         }

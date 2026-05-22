@@ -11,8 +11,8 @@ from core.base.button import Button
 from core.base.timer import Timer
 from core.engine.task.registry import TaskResult
 from core.ui.assets import (
-    BTN_BUG,
     BTN_CLOSE,
+    BTN_FARMING,
     BTN_FRIEND_AGREED,
     BTN_FRIEND_APPLY,
     BTN_FRIEND_RIGHT_FRAME,
@@ -21,13 +21,9 @@ from core.ui.assets import (
     BTN_STEAL,
     BTN_STEAL_TOTAL,
     BTN_VISIT_FIRST,
-    BTN_WATER,
-    BTN_WEED,
-    ICON_BUG_IN_FRIEND_LIST,
+    ICON_FARMING_IN_FRIEND_LIST,
     ICON_GUARD_DOG,
     ICON_STEAL_IN_FRIEND_LIST,
-    ICON_WATER_IN_FRIEND_LIST,
-    ICON_WEED_IN_FRIEND_LIST,
     MAIN_GOTO_FRIEND,
 )
 from core.ui.page import page_friend_list, page_main
@@ -366,7 +362,7 @@ class TaskFriend(TaskBase):
         if detect_steal:
             has_steal_action = bool(self.ui.appear_any([BTN_STEAL, BTN_MATURE], offset=30, static=False))
         if detect_help:
-            has_help_action = bool(self.ui.appear_any([BTN_WATER, BTN_WEED, BTN_BUG], offset=30, static=False))
+            has_help_action = bool(self.ui.appear_any([BTN_FARMING], offset=30, static=False))
         return has_steal_action, has_help_action
 
     def _enter_friend_detail(self, *, enable_steal: bool, enable_help: bool) -> bool:
@@ -645,9 +641,7 @@ class TaskFriend(TaskBase):
         if enable_steal:
             icons.extend(self.ui.match_icon_multi(ICON_STEAL_IN_FRIEND_LIST, threshold=0.85))
         if enable_help:
-            icons.extend(self.ui.match_icon_multi(ICON_WATER_IN_FRIEND_LIST, threshold=0.85))
-            icons.extend(self.ui.match_icon_multi(ICON_WEED_IN_FRIEND_LIST, threshold=0.85))
-            icons.extend(self.ui.match_icon_multi(ICON_BUG_IN_FRIEND_LIST, threshold=0.85))
+            icons.extend(self.ui.match_icon_multi(ICON_FARMING_IN_FRIEND_LIST, threshold=0.85))
 
         if not icons:
             return []
@@ -880,16 +874,14 @@ class TaskFriend(TaskBase):
         return total_amount, loss_amount, bean_amount, debug_info
 
     def _help_in_friend_farm(self) -> bool:
-        """在好友农场执行浇水/除草/除虫，完成后尝试回家。"""
+        """在好友农场执行务农，完成后尝试回家。"""
         return self._run_help_maintain_actions()
 
     def _run_help_maintain_actions(self) -> bool:
         """好友帮忙。"""
         button = self._run_click_loop(
             [
-                (BTN_WATER, ActionType.WATER),
-                (BTN_WEED, ActionType.WEED),
-                (BTN_BUG, ActionType.BUG),
+                (BTN_FARMING, ActionType.FARMING),
             ]
         )
         if button is not None:

@@ -15,9 +15,7 @@
     "feature_labels": {
       "auto_harvest": "收获",
       "auto_plant": "播种",
-      "auto_water": "浇水",
-      "auto_weed": "除草",
-      "auto_bug": "除虫",
+      "auto_farming": "务农",
       "auto_expand": "土地扩建",
       "auto_upgrade": "土地升级",
       "auto_help": "帮忙",
@@ -120,9 +118,7 @@
       "next_run": "下次运行",
       "harvest": "收获",
       "plant": "播种",
-      "water": "浇水",
-      "weed": "除草",
-      "bug": "除虫",
+      "farming": "务农",
       "sell": "出售"
     },
     "state_text": {

@@ -146,9 +146,19 @@ class FeaturePanel(QWidget):
         super().__init__(parent)
         self.config = config
         labels = load_config_json_object('ui_labels.json', prefer_user=False).get('feature_panel', {})
+        template_tasks = load_config_json_object('config.template.json', prefer_user=False).get('tasks', {})
         self._task_title_map = labels.get('task_titles', {})
         self._feature_label_map = labels.get('feature_labels', {})
         self._feature_hint_map = labels.get('feature_hints', {})
+        self._template_task_features: dict[str, list[str]] = {}
+        if isinstance(template_tasks, dict):
+            for task_name, task_cfg in template_tasks.items():
+                if not isinstance(task_cfg, dict):
+                    continue
+                raw_features = task_cfg.get('features', {})
+                if not isinstance(raw_features, dict):
+                    continue
+                self._template_task_features[str(task_name)] = [str(key) for key in raw_features.keys()]
         self._loading = True
         self._bool_widgets: dict[tuple[str, str], CheckBox] = {}
         self._int_widgets: dict[tuple[str, str], SpinBox] = {}
@@ -199,6 +209,9 @@ class FeaturePanel(QWidget):
             feature_map = task_cfg.features or {}
             if not isinstance(feature_map, dict) or not feature_map:
                 continue
+            feature_map = self._resolve_render_feature_map(task_name, feature_map)
+            if not feature_map:
+                continue
             card = self._build_task_card(task_name, feature_map)
             target = 0 if col_heights[0] <= col_heights[1] else 1
             columns[target].addWidget(card)
@@ -216,6 +229,20 @@ class FeaturePanel(QWidget):
     def _resolve_task_order(self) -> list[str]:
         task_names = [str(name) for name in self.config.tasks.keys()]
         return resolve_executor_task_order(task_names, self.config.executor.task_order)
+
+    def _resolve_render_feature_map(self, task_name: str, feature_map: dict[str, Any]) -> dict[str, Any]:
+        """按模板 feature 白名单与顺序构建可渲染字段。"""
+        task_key = str(task_name)
+        if task_key not in self._template_task_features:
+            return dict(feature_map)
+        ordered_keys = self._template_task_features.get(task_key, [])
+        if not ordered_keys:
+            return {}
+        out: dict[str, Any] = {}
+        for key in ordered_keys:
+            if key in feature_map:
+                out[key] = feature_map[key]
+        return out
 
     @staticmethod
     def _apply_card_style(card: StableElevatedCardWidget, object_name: str) -> None:

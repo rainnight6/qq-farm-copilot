@@ -36,9 +36,7 @@ class TaskViewBase:
 class MainFeatures:
     auto_harvest: bool = True
     auto_plant: bool = False
-    auto_weed: bool = True
-    auto_water: bool = True
-    auto_bug: bool = True
+    auto_farming: bool = True
     auto_expand: bool = True
     auto_upgrade: bool = True
     auto_fertilize: bool = False

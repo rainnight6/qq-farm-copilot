@@ -21,6 +21,7 @@
 - 实例纳管操作：`新增 / 删除 / 切换 / 克隆 / 重命名`
 - 调度模式：`TaskExecutor` 单线程串行执行
 - 任务配置：`%APPDATA%/QQFarmCopilot/instances/<instance_id>/configs/config.json -> tasks`（动态字典，包含持久化 `next_run`）
+- 配置清理：启动加载配置时会按 `configs/config.template.json` 自动清理 `tasks.<name>.features` 中模板未定义的历史字段（并写回配置）
 - 农场详情配置：`config.land.plots`（固定 24 格，元素结构：`{plot_id, level, maturity_countdown, countdown_sync_time, need_upgrade, need_planting}`；`level` 支持 `unbuilt|normal|red|black|gold|amethyst`；`maturity_countdown` 为 `HH:MM:SS`，`countdown_sync_time` 为该地块倒计时采样时间 `YYYY-MM-DD HH:MM:SS`，`need_upgrade` 表示地块是否可升级，`need_planting` 表示地块是否需要播种）及 `config.land.profile`（`level/gold/coupon/exp`，来源于等级同步 OCR）
 - 好友黑名单配置：`config.tasks.friend.features.blacklist`（`list[str]`，在任务设置详情弹窗维护）
 - 数据统计开关：`config.tasks.friend.features.steal_stats`（默认 `false`；开启后仅在偷取动作后执行 OCR 统计，偷取速度会变慢）
@@ -175,13 +176,11 @@
 
 - `main` 内部动作顺序（按 feature 开关）：
 1. `harvest`
-2. `weed`
-3. `bug`
-4. `water`
-5. `expand`
-6. `plant`（前置等级 OCR）
-7. `fertilize`（当前由策略强制关闭）
-8. `upgrade`
+2. `farming`
+3. `expand`
+4. `plant`（前置等级 OCR）
+5. `fertilize`（当前由策略强制关闭）
+6. `upgrade`
 
 - `friend`
 : 独立好友任务，复用 `TaskFriend`；支持 `features.blacklist: list[str]`、`features.steal_stats: bool`、`features.help_only_guard_dog: bool`，以及 `steal/help` 各自的 `enabled_time_range` 与 `limit_count` 配置（功能时段与次数限制在任务调度时段内生效）。

@@ -10,16 +10,11 @@ class ActionType(str, Enum):
 
     HARVEST = 'harvest'
     PLANT = 'plant'
-    WATER = 'water'
-    WEED = 'weed'
-    BUG = 'bug'
+    FARMING = 'farming'
     FERTILIZE = 'fertilize'
     REMOVE = 'remove'
     SELL = 'sell'
     STEAL = 'steal'
-    HELP_WATER = 'help_water'
-    HELP_WEED = 'help_weed'
-    HELP_BUG = 'help_bug'
     CLOSE_POPUP = 'close_popup'
     NAVIGATE = 'navigate'
 

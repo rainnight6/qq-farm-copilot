@@ -29,9 +29,7 @@
       "features": {
         "auto_harvest": true,
         "auto_plant": false,
-        "auto_weed": true,
-        "auto_water": true,
-        "auto_bug": true,
+        "auto_farming": true,
         "auto_expand": true,
         "auto_upgrade": true,
         "auto_fertilize": false

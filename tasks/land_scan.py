@@ -289,9 +289,9 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         return
 
     def _run_actions_before_ocr_cell(self) -> None:
-        """点击地块前先做一键收获与三项维护，减少弹窗噪声。"""
+        """点击地块前先做一键收获与务农，减少弹窗噪声。"""
         self._run_feature_harvest()
-        self._run_feature_maintain_actions(enable_weed=True, enable_bug=True, enable_water=True)
+        self._run_feature_maintain_actions(enable_farming=True)
 
     def _resolve_scan_columns(self, cells: list[LandCell], *, from_side: str, column_count: int) -> list[int]:
         """根据当前网格确定本轮应扫描的物理列（排除前确定，避免补列）。"""
