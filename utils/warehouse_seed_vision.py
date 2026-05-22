@@ -6,8 +6,14 @@ import cv2
 import numpy as np
 from loguru import logger
 
-# 仓库种子页上半部 5x4 种子格区域，用于分割当前可见 20 个种子格。
-WAREHOUSE_SEED_GRID_ROI: tuple[int, int, int, int] = (18, 180, 522, 616)
+# 仓库种子页可见种子格列数（固定 5 列）。
+WAREHOUSE_SEED_GRID_COLS: int = 5
+# 仓库种子页识别行数（当前按 3 行识别）。
+WAREHOUSE_SEED_GRID_ROWS: int = 3
+# 仓库种子页单屏识别总格数。
+WAREHOUSE_SEED_SLOT_COUNT: int = WAREHOUSE_SEED_GRID_COLS * WAREHOUSE_SEED_GRID_ROWS
+# 仓库种子页上半部 3x5 种子格区域，用于分割当前可见 15 个种子格。
+WAREHOUSE_SEED_GRID_ROI: tuple[int, int, int, int] = (20, 265, 520, 615)
 
 
 def clip_bbox(
@@ -39,7 +45,7 @@ def cluster_axis_values(values: list[float], *, threshold: float) -> list[float]
 
 
 def detect_warehouse_seed_slot_boxes(screenshot: np.ndarray) -> list[tuple[int, int, int, int]]:
-    """按仓库种子页上半区域轮廓推断 5x4 种子格。"""
+    """按仓库种子页上半区域轮廓推断 3x5 种子格。"""
     if screenshot is None or screenshot.size == 0:
         return []
 
@@ -67,7 +73,7 @@ def detect_warehouse_seed_slot_boxes(screenshot: np.ndarray) -> list[tuple[int, 
     col_centers = cluster_axis_values(centers_x, threshold=35.0)
     row_centers = cluster_axis_values(centers_y, threshold=40.0)
 
-    if len(col_centers) < 5 or not row_centers:
+    if len(col_centers) < WAREHOUSE_SEED_GRID_COLS or not row_centers:
         logger.warning(
             '仓库种子格分割不足: 轮廓数={} 列数={} 行数={}',
             len(candidates),
@@ -76,13 +82,13 @@ def detect_warehouse_seed_slot_boxes(screenshot: np.ndarray) -> list[tuple[int, 
         )
         return sorted(candidates, key=lambda box: (box[1], box[0]))
 
-    col_centers = sorted(col_centers)[:5]
+    col_centers = sorted(col_centers)[:WAREHOUSE_SEED_GRID_COLS]
     row_centers = sorted(row_centers)
-    if len(row_centers) < 4:
+    if len(row_centers) < WAREHOUSE_SEED_GRID_ROWS:
         row_step = float(np.median(np.diff(row_centers))) if len(row_centers) >= 2 else 110.0
-        while len(row_centers) < 4:
+        while len(row_centers) < WAREHOUSE_SEED_GRID_ROWS:
             row_centers.append(row_centers[-1] + row_step)
-    row_centers = row_centers[:4]
+    row_centers = row_centers[:WAREHOUSE_SEED_GRID_ROWS]
 
     widths = [box[2] - box[0] for box in candidates]
     heights = [box[3] - box[1] for box in candidates]
@@ -98,7 +104,7 @@ def detect_warehouse_seed_slot_boxes(screenshot: np.ndarray) -> list[tuple[int, 
             y1 = int(round(cy - cell_h / 2.0))
             boxes.append(clip_bbox((x1, y1, x1 + cell_w, y1 + cell_h), width=sw, height=sh))
 
-    if len(candidates) != 20:
+    if len(candidates) != WAREHOUSE_SEED_SLOT_COUNT:
         logger.debug(
             '仓库种子格轮廓推断: 原始轮廓数={} 候选轮廓数={} 过滤轮廓数={} 推断格数={} 列中心={} 行中心={}',
             len(contours),
@@ -108,7 +114,7 @@ def detect_warehouse_seed_slot_boxes(screenshot: np.ndarray) -> list[tuple[int, 
             [round(v, 1) for v in col_centers],
             [round(v, 1) for v in row_centers],
         )
-    return boxes[:20]
+    return boxes[:WAREHOUSE_SEED_SLOT_COUNT]
 
 
 def group_warehouse_seed_rows(
@@ -131,7 +137,7 @@ def group_warehouse_seed_rows(
             last_row.append(box)
         else:
             rows.append([box])
-    return [sorted(row, key=lambda item: item[0])[:5] for row in rows if row]
+    return [sorted(row, key=lambda item: item[0])[:WAREHOUSE_SEED_GRID_COLS] for row in rows if row]
 
 
 def warehouse_seed_row_image_similarity(a: np.ndarray, b: np.ndarray) -> float:

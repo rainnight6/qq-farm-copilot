@@ -17,6 +17,7 @@ from utils.warehouse_seed_vision import (
     WAREHOUSE_SEED_GRID_ROI as DEFAULT_WAREHOUSE_SEED_GRID_ROI,
 )
 from utils.warehouse_seed_vision import (
+    WAREHOUSE_SEED_SLOT_COUNT,
     detect_warehouse_seed_slot_boxes,
 )
 
@@ -70,7 +71,7 @@ TEMPLATE_CATEGORIES = {
 class CVDetector:
     """基于OpenCV模板匹配的游戏UI检测器"""
 
-    # 仓库种子页当前可见 5x4 种子格区域，供默认种子格分割使用。
+    # 仓库种子页当前可见 3x5 种子格区域，供默认种子格分割使用。
     WAREHOUSE_SEED_GRID_ROI: tuple[int, int, int, int] = DEFAULT_WAREHOUSE_SEED_GRID_ROI
     # 仓库种子格底色，按 RGB 记录；OpenCV 合成模板时会转换为 BGR。
     WAREHOUSE_SEED_SLOT_BG_RGB: tuple[int, int, int] = (255, 245, 223)
@@ -258,7 +259,9 @@ class CVDetector:
             logger.warning('仓库种子匹配: 模板不存在 | 模板={}', template_name)
             return []
 
-        seed_boxes = boxes if boxes is not None else detect_warehouse_seed_slot_boxes(screenshot)[:20]
+        seed_boxes = (
+            boxes if boxes is not None else detect_warehouse_seed_slot_boxes(screenshot)[:WAREHOUSE_SEED_SLOT_COUNT]
+        )
         results: list[SeedWarehouseSlot] = []
         for idx, (x1, y1, x2, y2) in enumerate(seed_boxes, 1):
             slot = screenshot[y1:y2, x1:x2]

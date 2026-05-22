@@ -44,9 +44,9 @@ WAREHOUSE_SEED_MATCH_SCALE = 0.6
 # 仓库 seed 模板匹配最低置信度，低于该值的候选不返回给播种流程。
 WAREHOUSE_SEED_MATCH_THRESHOLD = 0.74
 # 仓库种子页向下滚动手势起点，用于继续查看后续种子格。
-WAREHOUSE_SEED_SCROLL_START = (320, 510)
+WAREHOUSE_SEED_SCROLL_START = (320, 582)
 # 仓库种子页向下滚动手势终点；反向使用时用于回滚到顶部。
-WAREHOUSE_SEED_SCROLL_END = (320, 190)
+WAREHOUSE_SEED_SCROLL_END = (320, 374)
 # 仓库种子页最多滚动次数，避免结束标志或页面不变判定失效时无限循环。
 WAREHOUSE_SEED_MAX_SCROLLS = 5
 # 仓库种子区域滚动前后平均灰度差异阈值；低于该值视为页面不再变化。
