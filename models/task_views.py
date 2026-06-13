@@ -86,6 +86,11 @@ class FriendTaskView(TaskViewBase):
 
 
 @dataclass(slots=True)
+class GrassTaskView(TaskViewBase):
+    feature: EmptyFeatures = field(default_factory=EmptyFeatures)
+
+
+@dataclass(slots=True)
 class ShareTaskView(TaskViewBase):
     feature: EmptyFeatures = field(default_factory=EmptyFeatures)
 
@@ -128,6 +133,7 @@ class RestartTaskView(TaskViewBase):
 TASK_FEATURE_CLASS_MAP = {
     'main': MainFeatures,
     'friend': FriendFeatures,
+    'grass': EmptyFeatures,
     'share': EmptyFeatures,
     'reward': RewardFeatures,
     'gift': GiftFeatures,
@@ -141,6 +147,7 @@ TASK_FEATURE_CLASS_MAP = {
 TASK_VIEW_CLASS_MAP = {
     'main': MainTaskView,
     'friend': FriendTaskView,
+    'grass': GrassTaskView,
     'share': ShareTaskView,
     'reward': RewardTaskView,
     'gift': GiftTaskView,

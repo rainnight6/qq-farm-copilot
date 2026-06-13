@@ -13,6 +13,7 @@ from models.task_views import (
     EventShopTaskView,
     FriendTaskView,
     GiftTaskView,
+    GrassTaskView,
     LandScanTaskView,
     MainTaskView,
     RewardTaskView,
@@ -59,6 +60,10 @@ class TaskViews:
     @property
     def gift(self) -> GiftTaskView:
         return self.owner.engine.build_task_view('gift')  # type: ignore[return-value]
+
+    @property
+    def grass(self) -> GrassTaskView:
+        return self.owner.engine.build_task_view('grass')  # type: ignore[return-value]
 
     @property
     def event_shop(self) -> EventShopTaskView:

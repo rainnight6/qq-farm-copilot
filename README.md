@@ -57,6 +57,7 @@
 
 - `main`：农场主流程（收获维护、播种、扩建、升级）
 - `friend`：独立好友任务（支持 `features.blacklist`、`features.steal_stats`、`features.help_only_guard_dog`，以及偷菜/帮忙各自的 `enabled_time_range` 与 `limit_count`；主界面仅显示黑名单条目数，详情弹窗可维护名单）
+- `grass`：自动种草任务（默认关闭；依次访问好友农场，先帮忙一次，点击 `1-1` 地块打开弹窗后拖拽草种到全部地块；无 `features` 分项开关）
 - `share`：独立分享任务（仅支持微信平台，通常配合每日触发）
 - `reward`：独立任务奖励领取（默认每 6 小时执行一次）
 - `gift`：物品领取任务（QQSVIP礼包、商城礼包、可选邮件领取；支持分项开关）
@@ -158,7 +159,7 @@ python main.py
 - `executor`：调度顺序与默认间隔配置；`min_task_interval_seconds`（任务最小执行间隔）
 - `recovery`：异常恢复策略；`task_restart_attempts`（任务异常重启窗口次数）、`task_retry_delay_seconds`（重启后重试延迟秒数）、`window_launch_wait_timeout_seconds`（每轮等待窗口出现超时）、`startup_retry_step_sleep_seconds`（启动重试轮询步进）、`startup_stabilize_timeout_seconds`（启动收敛总超时）
 - `notification`：异常通知配置；`exception_notify_enabled`（是否在异常停机时推送通知）、`win_toast_enabled`（是否发送 Windows 本地通知，依赖 `winotify`）、`onepush_config`（可选 OnePush YAML 配置文本）
-- `executor.task_order`：任务固定顺序配置（示例：`land_scan>timed_harvest>main>friend>sell>reward>gift>event_shop>share>restart`）
+- `executor.task_order`：任务固定顺序配置（示例：`land_scan>timed_harvest>main>friend>grass>sell>reward>gift>event_shop>share>restart`）
 - `land`：农场详情配置；`land.plots` 为 24 格地块状态列表（元素：`{ "plot_id": "1-1", "level": "unbuilt|normal|red|black|gold|amethyst", "maturity_countdown": "HH:MM:SS", "countdown_sync_time": "YYYY-MM-DD HH:MM:SS", "need_upgrade": false, "need_planting": false }`）；`countdown_sync_time` 为该地块倒计时采样时间；`land.profile` 为个人信息（`level/gold/coupon/exp`，由等级同步 OCR 回写）
 - `tasks`：动态任务字典
 - `tasks.<task>.next_run`：任务下次执行时间（持久化到配置，默认 `2026-01-01 00:00`）
@@ -213,6 +214,16 @@ python main.py
         "测试好友-李四"
       ]
     }
+  },
+  "grass": {
+    "enabled": false,
+    "trigger": "interval",
+    "daily_times": ["00:01"],
+    "next_run": "2026-01-01 00:00",
+    "interval_seconds": 21600,
+    "enabled_time_range": "00:00:00-23:59:59",
+    "failure_interval_seconds": 300,
+    "features": {}
   },
   "share": {
     "enabled": true,

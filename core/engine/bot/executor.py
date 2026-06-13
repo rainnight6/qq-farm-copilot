@@ -43,6 +43,7 @@ from models.task_views import (
 from tasks.event_shop import TaskEventShop
 from tasks.friend import TaskFriend
 from tasks.gift import TaskGift
+from tasks.grass import TaskGrass
 from tasks.land_scan import TaskLandScan
 from tasks.main import TaskMain
 from tasks.reward import TaskReward
@@ -899,6 +900,15 @@ class BotExecutorMixin:
             return err
         self._reset_device_runtime_guards()
         task = TaskFriend(engine=self, ui=self.ui, ocr_tool=self._get_ocr_tool())
+        return task.run(rect=rect)
+
+    def _run_task_grass(self, _ctx: TaskContext) -> TaskResult:
+        """执行 `task_grass` 子流程。"""
+        rect, err = self._prepare_task_scene('grass')
+        if err is not None:
+            return err
+        self._reset_device_runtime_guards()
+        task = TaskGrass(engine=self, ui=self.ui)
         return task.run(rect=rect)
 
     def _run_task_share(self, _ctx: TaskContext) -> TaskResult:

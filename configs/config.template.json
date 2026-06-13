@@ -56,6 +56,16 @@
         "steal_stats": false
       }
     },
+    "grass": {
+      "enabled": false,
+      "trigger": "interval",
+      "interval_seconds": 21600,
+      "enabled_time_range": "00:00:00-23:59:59",
+      "daily_times": ["00:01"],
+      "next_run": "2026-01-01 00:00",
+      "failure_interval_seconds": 300,
+      "features": {}
+    },
     "share": {
       "enabled": true,
       "trigger": "daily",
@@ -149,7 +159,7 @@
   },
   "executor": {
     "min_task_interval_seconds": 5,
-    "task_order": "land_scan>timed_harvest>main>friend>sell>reward>gift>event_shop>share>restart",
+    "task_order": "land_scan>timed_harvest>main>friend>grass>sell>reward>gift>event_shop>share>restart",
     "default_success_interval": 5,
     "default_failure_interval": 5
   },

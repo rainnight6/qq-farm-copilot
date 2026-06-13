@@ -3,6 +3,7 @@
     "task_titles": {
       "main": "农场巡查",
       "friend": "好友巡查",
+      "grass": "自动种草",
       "share": "分享",
       "reward": "奖励领取",
       "gift": "物品领取",
@@ -70,6 +71,7 @@
     "task_titles": {
       "main": "农场巡查",
       "friend": "好友巡查",
+      "grass": "自动种草",
       "share": "分享",
       "reward": "奖励领取",
       "gift": "物品领取",
