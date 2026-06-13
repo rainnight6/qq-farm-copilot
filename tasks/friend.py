@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 
+import numpy as np
 from loguru import logger
 
 from core.base.button import Button
@@ -19,6 +20,8 @@ from core.ui.assets import (
     BTN_HOME,
     BTN_MATURE,
     BTN_STEAL,
+    BTN_STEAL_SINGLE,
+    BTN_STEAL_SINGLE_2,
     BTN_STEAL_TOTAL,
     BTN_VISIT_FIRST,
     ICON_FARMING_IN_FRIEND_LIST,
@@ -27,6 +30,7 @@ from core.ui.assets import (
     MAIN_GOTO_FRIEND,
 )
 from core.ui.page import page_friend_list, page_main
+from core.vision.cv_detector import CVDetector, DetectResult
 from models.config import normalize_task_enabled_time_range
 from models.farm_state import ActionType
 from tasks.base import TaskBase
@@ -78,6 +82,8 @@ GUARD_DOG_DETECT_TIMEOUT_SECONDS = 2
 STEAL_TOTAL_OCR_REGION = (420, 240, 530, 390)
 # 偷取统计金额 token 正则：支持纯数字/小数/万单位，允许前导负号。
 STEAL_AMOUNT_TOKEN_PATTERN = re.compile(r'-?\d+(?:\.\d+)?(?:万)?')
+# 四格作物单独偷取图标模板匹配阈值。
+SINGLE_CROP_STEAL_THRESHOLD = 0.7
 
 
 class TaskFriend(TaskBase):
@@ -290,11 +296,17 @@ class TaskFriend(TaskBase):
             )
             return
 
-        has_steal_action, has_help_action = self._get_current_friend_action_flags(
+        (
+            has_steal_action,
+            has_help_action,
+            has_single_crop_action,
+            single_crop_results,
+        ) = self._get_current_friend_action_flags(
             detect_help=help_available,
             detect_steal=steal_available,
+            detect_single_crop=steal_available,
         )
-        has_action = bool(has_steal_action or has_help_action)
+        has_action = bool(has_steal_action or has_help_action or has_single_crop_action)
         if not has_action:
             no_action += 1
             logger.info('好友巡查: 当前好友无可执行动作，连续空轮询={}/{}', no_action, FRIEND_NO_ACTION_EXIT_STREAK)
@@ -315,13 +327,25 @@ class TaskFriend(TaskBase):
                     steal_done_count,
                     steal_limit_count if steal_limit_count > 0 else '∞',
                 )
-            if help_allowed_current and self._run_feature_help():
-                help_done_count += 1
-                logger.info(
-                    '好友巡查: 帮忙进度={}/{}',
-                    help_done_count,
-                    help_limit_count if help_limit_count > 0 else '∞',
-                )
+            if help_allowed_current:
+                if self._run_feature_help():
+                    help_done_count += 1
+                    logger.info(
+                        '好友巡查: 帮忙进度={}/{}',
+                        help_done_count,
+                        help_limit_count if help_limit_count > 0 else '∞',
+                    )
+            if steal_available and single_crop_results:
+                if self._run_single_crop_steal(
+                    enable_steal_stats=enable_steal_stats,
+                    pre_detected_results=single_crop_results,
+                ):
+                    steal_done_count += 1
+                    logger.info(
+                        '好友巡查: 偷菜进度={}/{}',
+                        steal_done_count,
+                        steal_limit_count if steal_limit_count > 0 else '∞',
+                    )
 
         if not self._goto_next_friend():
             logger.info('好友巡查: 切换下一位好友失败，结束好友任务')
@@ -364,16 +388,24 @@ class TaskFriend(TaskBase):
         logger.info('好友巡查: 护主犬识别超时，跳过当前好友')
         return False
 
-    def _get_current_friend_action_flags(self, *, detect_help: bool, detect_steal: bool) -> tuple[bool, bool]:
-        """判断当前好友界面是否存在偷菜/帮忙动作按钮。"""
+    def _get_current_friend_action_flags(
+        self, *, detect_help: bool, detect_steal: bool, detect_single_crop: bool
+    ) -> tuple[bool, bool, bool, list[DetectResult]]:
+        """判断当前好友界面是否存在偷菜/帮忙/四格作物动作标志，并返回四格作物检测结果。"""
         self.ui.device.screenshot()
+        image = self.ui.device.image
         has_steal_action = False
         has_help_action = False
+        single_crop_results: list[DetectResult] = []
         if detect_steal:
             has_steal_action = bool(self.ui.appear_any([BTN_STEAL, BTN_MATURE], offset=30, static=False))
         if detect_help:
             has_help_action = bool(self.ui.appear_any([BTN_FARMING], offset=30, static=False))
-        return has_steal_action, has_help_action
+        if detect_single_crop and image is not None:
+            roi = self._get_single_crop_steal_roi_from_image(image)
+            single_crop_results = self._detect_single_crop_icons(image, roi)
+        has_single_crop_action = bool(single_crop_results)
+        return has_steal_action, has_help_action, has_single_crop_action, single_crop_results
 
     def _enter_friend_detail(self, *, enable_steal: bool, enable_help: bool) -> bool:
         """从好友列表页进入某个好友详情页。"""
@@ -679,6 +711,104 @@ class TaskFriend(TaskBase):
             if enable_steal_stats and button is BTN_STEAL:
                 self._ocr_and_record_steal()
             logger.info('好友巡查: 完成动作 | 偷好友果实')
+            return True
+        return False
+
+    def _get_single_crop_steal_roi(self) -> tuple[int, int, int, int] | None:
+        """返回好友农场四格作物单独偷取图标的检测 ROI（页面上方 40%-70% 区域）。"""
+        image = self.ui.device.image
+        if image is None:
+            return None
+        return self._get_single_crop_steal_roi_from_image(image)
+
+    @staticmethod
+    def _get_single_crop_steal_roi_from_image(image: np.ndarray) -> tuple[int, int, int, int] | None:
+        """根据给定图像返回四格作物单独偷取图标的检测 ROI。"""
+        if image is None:
+            return None
+        h, w = image.shape[:2]
+        return (0, int(h * 0.4), w, int(h * 0.7))
+
+    def _detect_single_crop_icons(
+        self,
+        image: np.ndarray | None,
+        roi: tuple[int, int, int, int] | None,
+    ) -> list[DetectResult]:
+        """在 ROI 内检测所有四格作物单独偷取图标，返回带置信度的结果。"""
+        if image is None:
+            return []
+        results: list[DetectResult] = []
+        for button in (BTN_STEAL_SINGLE, BTN_STEAL_SINGLE_2):
+            for matched in self.ui.match_icon_multi(button, threshold=SINGLE_CROP_STEAL_THRESHOLD, roi=roi):
+                x1, y1, x2, y2 = matched.area
+                cx, cy = matched.location
+                results.append(
+                    DetectResult(
+                        name=matched.name,
+                        category='button',
+                        x=cx,
+                        y=cy,
+                        w=x2 - x1,
+                        h=y2 - y1,
+                        confidence=float(getattr(matched, '_last_score', 0.0)),
+                    )
+                )
+        # 对两个模板的结果做 NMS 去重，再按纵向、横向排序，优先从上往下点击。
+        results = CVDetector._nms(results, iou_threshold=0.5)
+        results.sort(key=lambda r: (r.bbox[1], r.bbox[0]))
+        return results
+
+    def _has_single_crop_steal_icons(self, image: np.ndarray | None = None) -> bool:
+        """判断当前好友农场 40%-70% 高度区域是否存在四格作物单独偷取图标。"""
+        if image is None:
+            self.ui.device.screenshot()
+            image = self.ui.device.image
+        roi = self._get_single_crop_steal_roi_from_image(image)
+        results = self._detect_single_crop_icons(image, roi)
+        return bool(results)
+
+    def _run_single_crop_steal(
+        self,
+        *,
+        enable_steal_stats: bool,
+        pre_detected_results: list[DetectResult] | None = None,
+    ) -> bool:
+        """在农场区域（40%-70% 高度）内检测并点击所有四格作物单独偷取图标。"""
+        if pre_detected_results is not None:
+            results = pre_detected_results
+        else:
+            self.ui.device.screenshot()
+            image = self.ui.device.image
+            roi = self._get_single_crop_steal_roi()
+            results = self._detect_single_crop_icons(image, roi)
+        if not results:
+            logger.debug(
+                '好友巡查: 未命中四格作物图标 | pre_detected={}',
+                pre_detected_results is not None,
+            )
+            return False
+
+        logger.info('好友巡查: 发现四格作物 | 数量={}', len(results))
+        clicked_any = False
+        for result in results:
+            x, y = result.center
+            logger.info(
+                '好友巡查: 点击四格作物 | location=({},{}) name={} confidence={:.3f}',
+                x,
+                y,
+                result.name,
+                result.confidence,
+            )
+            if self.ui.device.click_point(x, y, desc='偷取四格作物'):
+                clicked_any = True
+                self.ui.device.sleep(0.2)
+
+        if clicked_any:
+            self.engine._record_friend_daily_stat('steal')
+            self.engine._record_stat(ActionType.STEAL)
+            if enable_steal_stats:
+                self._ocr_and_record_steal()
+            logger.info('好友巡查: 完成动作 | 偷取四格作物')
             return True
         return False
 

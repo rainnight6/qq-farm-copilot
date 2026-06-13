@@ -214,11 +214,8 @@ class ModuleBase:
         threshold: float = 0.75,
         roi: tuple[int, int, int, int] | None = None,
     ) -> list[Button]:
-        """icon_ 模板多命中识别（内部切换为 NIKKE `match_multi` 逻辑）。"""
+        """模板多命中识别（NIKKE `match_multi` 逻辑），不再限制模板前缀。"""
         template_name = str(getattr(icon_button, 'template_name', '') or '')
-        if not template_name.startswith('icon_'):
-            return []
-
         image = self.device.image
         if image is None:
             return []
@@ -226,6 +223,12 @@ class ModuleBase:
         icon_button.ensure_template()
         template = icon_button.image
         if template is None:
+            logger.debug('模板多命中识别: 模板未加载 | name={}', template_name)
+            return []
+
+        # 兼容单图与多帧（GIF）模板，统一按列表处理。
+        templates = template if isinstance(template, list) else [template]
+        if not templates:
             return []
 
         search = image
@@ -244,21 +247,45 @@ class ModuleBase:
             offset_x = x1
             offset_y = y1
 
-        th, tw = template.shape[:2]
-        sh, sw = search.shape[:2]
-        if th > sh or tw > sw:
+        # 统一转灰度图匹配，减少颜色/光照扰动，与 CVDetector 行为保持一致。
+        search_gray = cv2.cvtColor(search, cv2.COLOR_BGR2GRAY)
+        # 对齐 NIKKE Template.match_multi：matchTemplate + similarity 筛选。
+        points_all: list[list[int]] = []
+        best_score = -1.0
+        best_w = 0
+        best_h = 0
+        for tpl in templates:
+            tpl_gray = cv2.cvtColor(tpl, cv2.COLOR_BGR2GRAY) if tpl.ndim == 3 else tpl
+            th, tw = tpl_gray.shape[:2]
+            sh, sw = search_gray.shape[:2]
+            if th > sh or tw > sw or th <= 0 or tw <= 0:
+                continue
+            match_result = cv2.matchTemplate(search_gray, tpl_gray, cv2.TM_CCOEFF_NORMED)
+            points = np.array(np.where(match_result > float(threshold))).T[:, ::-1]
+            if len(points):
+                points_all.extend(points.tolist())
+            _, local_best, _, _ = cv2.minMaxLoc(match_result)
+            if float(local_best) > best_score:
+                best_score = float(local_best)
+                best_w = int(tw)
+                best_h = int(th)
+
+        if not points_all:
+            logger.debug(
+                '模板多命中识别: 未命中 | name={} 阈值={:.3f} 最佳分数={:.3f}',
+                template_name,
+                float(threshold),
+                float(best_score),
+            )
             return []
 
-        # 对齐 NIKKE Template.match_multi：matchTemplate + similarity 筛选。
-        match_result = cv2.matchTemplate(search, template, cv2.TM_CCOEFF_NORMED)
-        points = np.array(np.where(match_result > float(threshold))).T[:, ::-1]
-        grouped = self._group_points_like_nikke(points, threshold=3)
+        grouped = self._group_points_like_nikke(np.array(points_all, dtype=int), threshold=3)
 
         out: list[Button] = []
         for point in grouped:
             x = int(point[0]) + offset_x
             y = int(point[1]) + offset_y
-            area = (x, y, x + tw, y + th)
+            area = (x, y, x + best_w, y + best_h)
             dynamic = Button(
                 area=area,
                 color=icon_button.color,
@@ -266,7 +293,16 @@ class ModuleBase:
                 file=icon_button.file,
                 name=icon_button.name,
             )
+            dynamic._last_score = float(best_score)
             out.append(dynamic)
+        logger.debug(
+            '模板多命中识别: 命中 | name={} 阈值={:.3f} 最佳分数={:.3f} 原始命中={} 聚类后={}',
+            template_name,
+            float(threshold),
+            float(best_score),
+            len(points_all),
+            len(out),
+        )
         return out
 
     def match_gif_multi(
