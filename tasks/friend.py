@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 
 import numpy as np
+import time
 from loguru import logger
 
 from core.base.button import Button
@@ -20,6 +21,7 @@ from core.ui.assets import (
     BTN_HOME,
     BTN_MATURE,
     BTN_STEAL,
+    BTN_STEAL_SIGN,
     BTN_STEAL_SINGLE,
     BTN_STEAL_SINGLE_2,
     BTN_STEAL_TOTAL,
@@ -83,7 +85,7 @@ STEAL_TOTAL_OCR_REGION = (420, 240, 530, 390)
 # 偷取统计金额 token 正则：支持纯数字/小数/万单位，允许前导负号。
 STEAL_AMOUNT_TOKEN_PATTERN = re.compile(r'-?\d+(?:\.\d+)?(?:万)?')
 # 四格作物单独偷取图标模板匹配阈值。
-SINGLE_CROP_STEAL_THRESHOLD = 0.7
+SINGLE_CROP_STEAL_THRESHOLD = 0.65
 
 
 class TaskFriend(TaskBase):
@@ -296,17 +298,12 @@ class TaskFriend(TaskBase):
             )
             return
 
-        (
-            has_steal_action,
-            has_help_action,
-            has_single_crop_action,
-            single_crop_results,
-        ) = self._get_current_friend_action_flags(
+        has_steal_action, has_help_action = self._get_current_friend_action_flags(
             detect_help=help_available,
             detect_steal=steal_available,
-            detect_single_crop=steal_available,
         )
-        has_action = bool(has_steal_action or has_help_action or has_single_crop_action)
+
+        has_action = bool(has_steal_action or has_help_action)
         if not has_action:
             no_action += 1
             logger.info('好友巡查: 当前好友无可执行动作，连续空轮询={}/{}', no_action, FRIEND_NO_ACTION_EXIT_STREAK)
@@ -335,6 +332,13 @@ class TaskFriend(TaskBase):
                         help_done_count,
                         help_limit_count if help_limit_count > 0 else '∞',
                     )
+        time.sleep(0.3)
+
+        self.ui.device.screenshot()
+        if self.ui.appear(BTN_STEAL_SIGN, offset=30, threshold=0.8, static=False):
+            if has_steal_action:
+                time.sleep(2)
+            single_crop_results = self._detect_single_crop_steal_results() if steal_available else []
             if steal_available and single_crop_results:
                 if self._run_single_crop_steal(
                     enable_steal_stats=enable_steal_stats,
@@ -388,24 +392,25 @@ class TaskFriend(TaskBase):
         logger.info('好友巡查: 护主犬识别超时，跳过当前好友')
         return False
 
-    def _get_current_friend_action_flags(
-        self, *, detect_help: bool, detect_steal: bool, detect_single_crop: bool
-    ) -> tuple[bool, bool, bool, list[DetectResult]]:
-        """判断当前好友界面是否存在偷菜/帮忙/四格作物动作标志，并返回四格作物检测结果。"""
+    def _get_current_friend_action_flags(self, *, detect_help: bool, detect_steal: bool) -> tuple[bool, bool]:
+        """判断当前好友界面是否存在偷菜/帮忙动作标志。"""
         self.ui.device.screenshot()
-        image = self.ui.device.image
         has_steal_action = False
         has_help_action = False
-        single_crop_results: list[DetectResult] = []
         if detect_steal:
-            has_steal_action = bool(self.ui.appear_any([BTN_STEAL, BTN_MATURE], offset=30, static=False))
+            has_steal_action = bool(self.ui.appear_any([BTN_STEAL], offset=30, static=False))
         if detect_help:
             has_help_action = bool(self.ui.appear_any([BTN_FARMING], offset=30, static=False))
-        if detect_single_crop and image is not None:
-            roi = self._get_single_crop_steal_roi_from_image(image)
-            single_crop_results = self._detect_single_crop_icons(image, roi)
-        has_single_crop_action = bool(single_crop_results)
-        return has_steal_action, has_help_action, has_single_crop_action, single_crop_results
+        return has_steal_action, has_help_action
+
+    def _detect_single_crop_steal_results(self) -> list[DetectResult]:
+        """在好友农场 40%-70% 高度区域检测四格作物单独偷取图标。"""
+        self.ui.device.screenshot()
+        image = self.ui.device.image
+        if image is None:
+            return []
+        roi = self._get_single_crop_steal_roi_from_image(image)
+        return self._detect_single_crop_icons(image, roi)
 
     def _enter_friend_detail(self, *, enable_steal: bool, enable_help: bool) -> bool:
         """从好友列表页进入某个好友详情页。"""
@@ -703,7 +708,7 @@ class TaskFriend(TaskBase):
         button = self._run_click_loop(
             [
                 (BTN_STEAL, ActionType.STEAL),
-                (BTN_MATURE, ActionType.STEAL),
+                # (BTN_MATURE, ActionType.STEAL),
             ]
         )
         if button is not None:
