@@ -183,7 +183,7 @@
 : 独立好友任务，复用 `TaskFriend`；支持 `features.blacklist: list[str]`、`features.steal_stats: bool`、`features.help_only_guard_dog: bool`，以及 `steal/help` 各自的 `enabled_time_range` 与 `limit_count` 配置（功能时段与次数限制在任务调度时段内生效）。
 
 - `grass`
-: 独立自动种草任务，默认关闭，默认 `trigger=interval`、`interval_seconds=21600`（6 小时）；进入好友列表后依次访问好友农场，先点击一次帮忙按钮（若存在），再点击 `1-1` 地块打开种草弹窗，识别 `BTN_GRASS` 后将其拖拽到该好友全部 24 个地块；切换下一位好友重复操作，直到识别不到 `BTN_GRASS` 时结束。
+: 独立自动种草任务，默认关闭，默认 `trigger=daily`、`daily_times=["00:01"]`；进入好友列表后依次访问好友农场，先点击一次帮忙按钮（若存在），再点击 `1-1` 地块打开种草弹窗，识别 `BTN_GRASS` 后将其拖拽到该好友全部 24 个地块；切换下一位好友重复操作，直到识别不到 `BTN_GRASS` 时结束。
 
 - `share`
 : 独立分享任务，仅执行分享领奖流程（仅支持微信平台；无 `features` 分项开关）。

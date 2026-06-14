@@ -849,6 +849,12 @@ class BotExecutorMixin:
                 if 'next_run' in kwargs:
                     item.next_run = kwargs['next_run']
 
+        # 活动任务默认配置在启动/配置变更时同步，不依赖任务是否启用。
+        try:
+            TaskEvent.sync_event_config(self.config, self._emit_config_now)
+        except Exception:
+            pass
+
     def _init_executor(self):
         """创建并启动统一任务执行器。"""
         runners = self._collect_task_runners_with_recovery()

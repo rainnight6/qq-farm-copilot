@@ -58,8 +58,8 @@
     },
     "grass": {
       "enabled": false,
-      "trigger": "interval",
-      "interval_seconds": 21600,
+      "trigger": "daily",
+      "interval_seconds": 86400,
       "enabled_time_range": "00:00:00-23:59:59",
       "daily_times": ["00:01"],
       "next_run": "2026-01-01 00:00",

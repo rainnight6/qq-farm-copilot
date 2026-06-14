@@ -111,6 +111,13 @@ class InstanceManager:
     def _build_session(self, instance_id: str, name: str, raw: dict[str, Any] | None = None) -> InstanceSession:
         paths = InstancePaths.from_instance_id(instance_id)
         cfg = AppConfig.load(str(paths.config_file))
+        # 程序启动/实例加载时同步活动默认配置，不依赖任务是否启用或引擎是否启动。
+        try:
+            from tasks.event import TaskEvent
+
+            TaskEvent.sync_event_config(cfg, emit=None)
+        except Exception:
+            pass
         raw_data = raw or {}
         return InstanceSession(
             instance_id=instance_id,

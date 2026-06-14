@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 # 当期活动默认配置
 DEFAULT_ACTIVITY_NAME = '荷风十里蝉初鸣'
-DEFAULT_DAILY_TIMES = ['10:01']
+DEFAULT_DAILY_TIMES = ['00:01']
 DEFAULT_RESOURCES = [
     'btn_hefeng_100',
     'btn_hefeng_101',
@@ -28,7 +28,7 @@ DEFAULT_RESOURCES = [
     'btn_hefeng_105_s:2.0:top',
     'btn_hefeng_106',
 ]
-DEFAULT_END_TIME = '2026-07-21 00:01:00'
+DEFAULT_END_TIME = '2026-07-21 00:00:00'
 CLICK_ANIMATION_DELAY = 0.8
 # 顶部偏上位置的点击坐标，用于关闭某些活动弹窗。
 TOP_TAP_POINT = (270, 80)
@@ -71,37 +71,55 @@ class TaskEvent(TaskBase):
         logger.info('活动: 结束')
         return self.ok()
 
-    def _sync_event_config(self, feature) -> None:
-        """当活动默认配置变化时，将默认配置同步到本地配置。"""
-        cfg = self.config.tasks.get('event')
+    @staticmethod
+    def sync_event_config(config, emit: Callable[[], None] | None = None) -> None:
+        """当活动默认配置变化时，将默认配置同步到本地配置。
+
+        该逻辑抽离为静态方法，便于在任务未启用时由执行器主动调用，
+        确保默认活动配置及时落盘。
+        """
+        cfg = config.tasks.get('event')
         if cfg is None:
             return
 
-        current_resources = list(feature.resources) if isinstance(feature.resources, list) else []
+        features = cfg.features if isinstance(cfg.features, dict) else {}
+        current_resources = list(features.get('resources', [])) if isinstance(features.get('resources'), list) else []
         current_daily_times = list(cfg.daily_times) if isinstance(cfg.daily_times, list) else []
+        current_activity_name = str(features.get('activity_name', '') or '')
+        current_end_time = str(features.get('end_time', '') or '')
+
         needs_sync = (
-            str(feature.activity_name or '') != DEFAULT_ACTIVITY_NAME
+            current_activity_name != DEFAULT_ACTIVITY_NAME
             or current_resources != list(DEFAULT_RESOURCES)
-            or str(feature.end_time or '') != DEFAULT_END_TIME
+            or current_end_time != DEFAULT_END_TIME
             or current_daily_times != list(DEFAULT_DAILY_TIMES)
         )
         if not needs_sync:
             return
 
-        new_features = dict(cfg.features or {})
+        new_features = dict(features)
         new_features['activity_name'] = DEFAULT_ACTIVITY_NAME
         new_features['resources'] = list(DEFAULT_RESOURCES)
         new_features['end_time'] = DEFAULT_END_TIME
         # 保留用户已有的点券开关，避免覆盖用户偏好。
-        new_features.setdefault('use_coupon', bool(feature.use_coupon))
+        new_features.setdefault('use_coupon', bool(new_features.get('use_coupon', False)))
         cfg.features = new_features
         cfg.daily_times = list(DEFAULT_DAILY_TIMES)
         try:
-            self.config.save()
-            self._emit_config_if_available()
+            config.save()
+            if callable(emit):
+                try:
+                    emit()
+                except Exception:
+                    pass
             logger.info('活动: 已同步默认配置 | name={}', DEFAULT_ACTIVITY_NAME)
         except Exception as exc:
             logger.warning('活动: 同步默认配置失败 | error={}', exc)
+
+    def _sync_event_config(self, feature) -> None:
+        """实例入口：复用类级同步逻辑。"""
+        _ = feature
+        self.sync_event_config(self.config, self._emit_config_if_available)
 
     def _is_event_ended(self, end_time_text: str) -> bool:
         """判断活动是否已到达结束时间；到达时自动关闭任务开关。"""
