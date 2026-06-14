@@ -61,7 +61,7 @@
 - `share`：独立分享任务（仅支持微信平台，通常配合每日触发）
 - `reward`：独立任务奖励领取（默认每 6 小时执行一次）
 - `gift`：物品领取任务（QQSVIP礼包、商城礼包、可选邮件领取；支持分项开关）
-- `event_shop`：活动商店任务（默认关闭；每日 `10:01`、`20:01` 执行；领取商城免费物品）
+- `event`：通用活动任务（默认关闭；每日 `10:01` 执行；按配置资源依次点击，`use_coupon` 控制点券资源，`end_time` 到达后自动关闭）
 - `sell`：独立出售任务（仓库批量出售）
 - `land_scan`：地块巡查任务（默认关闭；每 30 分钟；按实例配置的左右滑动次数分段点击地块并 OCR 采集）
 - `timed_harvest`：定时收获任务（默认开启；每日 `00:00` 启动计算；依赖地块巡查结果并按聚合时间生成后续收获执行点；支持 `features.priority_window_seconds` 调度判断间隔）
@@ -159,7 +159,7 @@ python main.py
 - `executor`：调度顺序与默认间隔配置；`min_task_interval_seconds`（任务最小执行间隔）
 - `recovery`：异常恢复策略；`task_restart_attempts`（任务异常重启窗口次数）、`task_retry_delay_seconds`（重启后重试延迟秒数）、`window_launch_wait_timeout_seconds`（每轮等待窗口出现超时）、`startup_retry_step_sleep_seconds`（启动重试轮询步进）、`startup_stabilize_timeout_seconds`（启动收敛总超时）
 - `notification`：异常通知配置；`exception_notify_enabled`（是否在异常停机时推送通知）、`win_toast_enabled`（是否发送 Windows 本地通知，依赖 `winotify`）、`onepush_config`（可选 OnePush YAML 配置文本）
-- `executor.task_order`：任务固定顺序配置（示例：`land_scan>timed_harvest>main>friend>grass>sell>reward>gift>event_shop>share>restart`）
+- `executor.task_order`：任务固定顺序配置（示例：`land_scan>timed_harvest>main>friend>grass>sell>reward>gift>event>share>restart`）
 - `land`：农场详情配置；`land.plots` 为 24 格地块状态列表（元素：`{ "plot_id": "1-1", "level": "unbuilt|normal|red|black|gold|amethyst", "maturity_countdown": "HH:MM:SS", "countdown_sync_time": "YYYY-MM-DD HH:MM:SS", "need_upgrade": false, "need_planting": false }`）；`countdown_sync_time` 为该地块倒计时采样时间；`land.profile` 为个人信息（`level/gold/coupon/exp`，由等级同步 OCR 回写）
 - `tasks`：动态任务字典
 - `tasks.<task>.next_run`：任务下次执行时间（持久化到配置，默认 `2026-01-01 00:00`）
@@ -261,14 +261,19 @@ python main.py
       "auto_mail": true
     }
   },
-  "event_shop": {
+  "event": {
     "enabled": false,
     "trigger": "daily",
-    "daily_times": ["10:01", "20:01"],
+    "daily_times": ["10:01"],
     "enabled_time_range": "00:00:00-23:59:59",
     "interval_seconds": 86400,
     "failure_interval_seconds": 300,
-    "features": {}
+    "features": {
+      "activity_name": "",
+      "resources": [],
+      "use_coupon": false,
+      "end_time": ""
+    }
   },
   "land_scan": {
     "enabled": false,

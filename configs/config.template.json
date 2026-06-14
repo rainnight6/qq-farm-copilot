@@ -103,15 +103,20 @@
         "auto_mail": true
       }
     },
-    "event_shop": {
+    "event": {
       "enabled": false,
       "trigger": "daily",
       "interval_seconds": 86400,
       "enabled_time_range": "00:00:00-23:59:59",
-      "daily_times": ["10:01", "20:01"],
+      "daily_times": ["10:01"],
       "next_run": "2026-01-01 00:00",
       "failure_interval_seconds": 300,
-      "features": {}
+      "features": {
+        "activity_name": "",
+        "resources": [],
+        "use_coupon": false,
+        "end_time": ""
+      }
     },
     "sell": {
       "enabled": true,
@@ -159,7 +164,7 @@
   },
   "executor": {
     "min_task_interval_seconds": 5,
-    "task_order": "land_scan>timed_harvest>main>friend>grass>sell>reward>gift>event_shop>share>restart",
+    "task_order": "land_scan>timed_harvest>main>friend>grass>sell>reward>gift>event>share>restart",
     "default_success_interval": 5,
     "default_failure_interval": 5
   },

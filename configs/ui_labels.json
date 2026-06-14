@@ -7,7 +7,7 @@
       "share": "分享",
       "reward": "奖励领取",
       "gift": "物品领取",
-      "event_shop": "活动商店",
+      "event": "活动",
       "sell": "出售",
       "land_scan": "地块巡查",
       "timed_harvest": "定时收获",
@@ -36,7 +36,11 @@
       "auto_mall_gift": "商城礼包领取",
       "auto_mail": "邮件领取",
       "aggregation_seconds": "聚合时间",
-      "priority_window_seconds": "优先窗口"
+      "priority_window_seconds": "优先窗口",
+      "activity_name": "活动名称",
+      "resources": "活动资源",
+      "use_coupon": "使用点券",
+      "end_time": "结束时间"
     },
     "feature_hints": {
       "reward.claim_growth_task": "QQ平台会直接领取",
@@ -44,7 +48,8 @@
       "main.auto_upgrade": "需要开启土地巡查任务",
       "main.auto_fertilize": "需要开启土地巡查任务",
       "timed_harvest.aggregation_seconds": "地块成熟时间落在同一聚合时间段内时，统一处理收获操作。",
-      "timed_harvest.priority_window_seconds": "当定时收获会晚于其他待执行任务时，若时间差在该窗口内，则优先执行定时收获。"
+      "timed_harvest.priority_window_seconds": "当定时收获会晚于其他待执行任务时，若时间差在该窗口内，则优先执行定时收获。",
+      "event.end_time": "到达指定时间后任务开关会自动关闭。"
     },
     "enabled": "启用",
     "detail_text": "详情",
@@ -75,7 +80,7 @@
       "share": "分享",
       "reward": "奖励领取",
       "gift": "物品领取",
-      "event_shop": "活动商店",
+      "event": "活动",
       "sell": "出售",
       "land_scan": "地块巡查",
       "timed_harvest": "定时收获",

@@ -6,7 +6,6 @@ import re
 from datetime import datetime
 
 import numpy as np
-import time
 from loguru import logger
 
 from core.base.button import Button
@@ -332,12 +331,12 @@ class TaskFriend(TaskBase):
                         help_done_count,
                         help_limit_count if help_limit_count > 0 else '∞',
                     )
-        time.sleep(0.3)
+        self.ui.device.sleep(0.3)
 
         self.ui.device.screenshot()
         if self.ui.appear(BTN_STEAL_SIGN, offset=30, threshold=0.8, static=False):
             if has_steal_action:
-                time.sleep(2)
+                self.ui.device.sleep(2)
             single_crop_results = self._detect_single_crop_steal_results() if steal_available else []
             if steal_available and single_crop_results:
                 if self._run_single_crop_steal(

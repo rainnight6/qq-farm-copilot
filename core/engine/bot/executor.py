@@ -40,7 +40,7 @@ from models.task_views import (
     TASK_VIEW_CLASS_MAP,
     TaskViewBase,
 )
-from tasks.event_shop import TaskEventShop
+from tasks.event import TaskEvent
 from tasks.friend import TaskFriend
 from tasks.gift import TaskGift
 from tasks.grass import TaskGrass
@@ -947,13 +947,13 @@ class BotExecutorMixin:
         task = TaskGift(engine=self, ui=self.ui)
         return task.run(rect=rect)
 
-    def _run_task_event_shop(self, _ctx: TaskContext) -> TaskResult:
-        """执行 `task_event_shop` 子流程。"""
-        rect, err = self._prepare_task_scene('event_shop')
+    def _run_task_event(self, _ctx: TaskContext) -> TaskResult:
+        """执行 `task_event` 子流程。"""
+        rect, err = self._prepare_task_scene('event')
         if err is not None:
             return err
         self._reset_device_runtime_guards()
-        task = TaskEventShop(engine=self, ui=self.ui)
+        task = TaskEvent(engine=self, ui=self.ui)
         return task.run(rect=rect)
 
     def _run_task_land_scan(self, _ctx: TaskContext) -> TaskResult:

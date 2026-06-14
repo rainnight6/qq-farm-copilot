@@ -141,7 +141,7 @@ class TaskTriggerType(str, Enum):
 DEFAULT_MIN_TASK_INTERVAL_SECONDS = 5
 DEFAULT_TASK_NEXT_RUN = '2026-01-01 00:00'
 DEFAULT_TASK_ENABLED_TIME_RANGE = '00:00:00-23:59:59'
-DEFAULT_EXECUTOR_TASK_ORDER = 'land_scan>timed_harvest>main>friend>grass>sell>reward>gift>event_shop>share>restart'
+DEFAULT_EXECUTOR_TASK_ORDER = 'land_scan>timed_harvest>main>friend>grass>sell>reward>gift>event>share>restart'
 
 
 def _normalize_hh_mm_text(text: str, fallback: str) -> str:
@@ -874,6 +874,38 @@ class AppConfig(ConfigModel):
         return out, True
 
     @classmethod
+    def _migrate_legacy_task_names(cls, user_data: dict) -> dict:
+        """迁移历史任务名（event_shop -> event）。"""
+        if not isinstance(user_data, dict):
+            return user_data
+        tasks = user_data.get('tasks')
+        if not isinstance(tasks, dict):
+            return user_data
+
+        old_key = 'event_shop'
+        new_key = 'event'
+        if old_key not in tasks:
+            return user_data
+
+        new_tasks = dict(tasks)
+        if new_key not in new_tasks:
+            new_tasks[new_key] = new_tasks.pop(old_key)
+        else:
+            new_tasks.pop(old_key)
+
+        out = dict(user_data)
+        out['tasks'] = new_tasks
+
+        executor = out.get('executor')
+        if isinstance(executor, dict):
+            task_order = str(executor.get('task_order', ''))
+            if old_key in task_order:
+                executor = dict(executor)
+                executor['task_order'] = task_order.replace(old_key, new_key)
+                out['executor'] = executor
+        return out
+
+    @classmethod
     def _same_structure_and_order(cls, left, right) -> bool:
         """递归比较配置内容与键顺序是否一致。"""
         if type(left) is not type(right):
@@ -965,6 +997,7 @@ class AppConfig(ConfigModel):
 
         if os.path.exists(config_file):
             user_data = cls._read_json_file(config_file)
+            user_data = cls._migrate_legacy_task_names(user_data)
             data = cls._deep_merge_dict(template_data, user_data)
             data, features_trimmed = cls._strip_unknown_task_features(data, template_data)
             config = cls(**data)

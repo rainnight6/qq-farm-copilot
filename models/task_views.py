@@ -70,6 +70,14 @@ class GiftFeatures:
 
 
 @dataclass(slots=True)
+class EventFeatures:
+    activity_name: str = ''
+    resources: list[str] = field(default_factory=list)
+    use_coupon: bool = False
+    end_time: str = ''
+
+
+@dataclass(slots=True)
 class TimedHarvestFeatures:
     aggregation_seconds: int = 30
     priority_window_seconds: int = 120
@@ -106,8 +114,8 @@ class GiftTaskView(TaskViewBase):
 
 
 @dataclass(slots=True)
-class EventShopTaskView(TaskViewBase):
-    feature: EmptyFeatures = field(default_factory=EmptyFeatures)
+class EventTaskView(TaskViewBase):
+    feature: EventFeatures = field(default_factory=EventFeatures)
 
 
 @dataclass(slots=True)
@@ -137,7 +145,7 @@ TASK_FEATURE_CLASS_MAP = {
     'share': EmptyFeatures,
     'reward': RewardFeatures,
     'gift': GiftFeatures,
-    'event_shop': EmptyFeatures,
+    'event': EventFeatures,
     'sell': EmptyFeatures,
     'land_scan': EmptyFeatures,
     'timed_harvest': TimedHarvestFeatures,
@@ -151,7 +159,7 @@ TASK_VIEW_CLASS_MAP = {
     'share': ShareTaskView,
     'reward': RewardTaskView,
     'gift': GiftTaskView,
-    'event_shop': EventShopTaskView,
+    'event': EventTaskView,
     'sell': SellTaskView,
     'land_scan': LandScanTaskView,
     'timed_harvest': TimedHarvestTaskView,

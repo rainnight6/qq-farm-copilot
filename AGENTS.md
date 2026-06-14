@@ -27,7 +27,7 @@
 - 护主犬帮忙过滤：`config.tasks.friend.features.help_only_guard_dog`（默认 `false`；开启后仅在好友详情匹配到 `icon_xxxx.gif` 时执行帮忙）
 - 数据统计落盘：`%APPDATA%/QQFarmCopilot/instances/<instance_id>/stats/daily_action_stats.csv`（按天累计 `harvest/operation/friend_steal/friend_help`）
 - 定时重启任务：`config.tasks.restart`（默认关闭；`trigger=interval`，默认 `interval_seconds=14400`；重启等待时间使用实例级 `config.window_restart_delay_seconds`，默认 `5` 秒）
-- 活动商店任务：`config.tasks.event_shop`（默认关闭；`trigger=daily`，默认 `daily_times=["10:01","20:01"]`；当前仅执行商城免费物品领取）
+- 活动任务：`config.tasks.event`（默认关闭；`trigger=daily`，默认 `daily_times=["10:01"]`；`features.activity_name/resources/use_coupon/end_time` 记录当期活动配置与结束时间）
 - 定时收获任务：`config.tasks.timed_harvest`（默认开启；`trigger=daily`，默认 `daily_times=["00:00"]`；`features.aggregation_seconds` 默认 `60` 秒；`features.priority_window_seconds` 默认 `120` 秒；依赖地块巡查结果生成后续执行点）
 - 高级配置：`config.safety.debug_log_enabled` 控制 Debug 日志输出；`config.safety.stuck_seconds`（默认 `60` 秒）与 `config.safety.stuck_long_wait_seconds`（默认 `120` 秒）控制无有效点击的卡死判定阈值
 - 异常恢复配置：`config.recovery`（`task_restart_attempts/task_retry_delay_seconds/window_launch_wait_timeout_seconds/startup_retry_step_sleep_seconds/startup_stabilize_timeout_seconds`）
@@ -64,7 +64,7 @@
 : 通用任务执行器（pending/waiting 队列、按固定任务顺序调度、结果回写 next_run）。
 
 - `tasks/*.py`
-: 业务任务实现（`main/friend/share/reward/gift/event_shop/sell/land_scan/timed_harvest` 及子任务；`restart` 入口在 `executor.py`）。
+: 业务任务实现（`main/friend/share/reward/gift/event/sell/land_scan/timed_harvest` 及子任务；`restart` 入口在 `executor.py`）。
 
 - `core/ui/ui.py` + `core/base/module_base.py`
 : 页面识别、导航、弹窗清理、`appear/appear_then_click` 等模板点击能力。
@@ -194,8 +194,8 @@
 - `gift`
 : 物品领取任务，支持分项开关：`features.auto_svip_gift`（默认 true）、`features.auto_mall_gift`（默认 true）、`features.auto_mail`（默认 true，依赖 `menu_goto_mail` 导航链路进入邮箱页）。
 
-- `event_shop`
-: 活动商店任务（默认关闭，默认 `trigger=daily`，默认 `daily_times=["10:01","20:01"]`）；当前流程仅领取商城免费物品。
+- `event`
+: 通用活动任务（默认关闭，默认 `trigger=daily`，默认 `daily_times=["10:01"]`）；按 `features.resources` 配置的资源顺序依次点击，`features.use_coupon` 控制是否执行后缀 `_s` 的点券资源，`features.end_time` 到达后自动关闭任务；每次运行若 `features.activity_name` 与当期默认不一致，会自动同步默认活动配置（包括 `daily_times`）。
 
 - `land_scan`
 : 地块巡查任务（默认关闭，默认 `interval_seconds=1800`）；左右滑动次数来自 `config.planting.land_swipe_right_times/land_swipe_left_times`，分段扫描右到左前 5 列与左到右前 4 列，最后回正，并对每个点击地块执行 OCR 采集；从文本中正则提取 `HH:MM:SS` 回写到 `config.land.plots[].maturity_countdown`，并按该地块实际采样时刻写入 `config.land.plots[].countdown_sync_time`，同时标记 `config.land.plots[].need_upgrade` 与 `config.land.plots[].need_planting`（空地为 `true`）。

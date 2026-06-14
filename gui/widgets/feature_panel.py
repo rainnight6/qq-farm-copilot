@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from PyQt6.QtCore import Qt, QTime, pyqtSignal
+from PyQt6.QtCore import Qt, QDateTime, QTime, pyqtSignal
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QFormLayout,
@@ -20,6 +20,7 @@ from qfluentwidgets import (
     CaptionLabel,
     CheckBox,
     ComboBox,
+    DateTimeEdit,
     FluentIcon,
     LineEdit,
     ListWidget,
@@ -38,6 +39,9 @@ from utils.app_paths import load_config_json_object
 from utils.feature_policy import is_feature_forced_off
 
 SETTINGS_HINT_COLOR = '#d97706'
+
+# 活动任务的以下字段由程序自动同步，UI 上只读展示。
+_READ_ONLY_EVENT_FEATURES = {'activity_name', 'end_time', 'resources'}
 
 
 class _ListEditorDialog(MessageBoxBase):
@@ -165,6 +169,7 @@ class FeaturePanel(QWidget):
         self._text_widgets: dict[tuple[str, str], LineEdit] = {}
         self._time_range_widgets: dict[tuple[str, str], tuple[TimeEdit, TimeEdit]] = {}
         self._interval_widgets: dict[tuple[str, str], tuple[SpinBox, ComboBox]] = {}
+        self._datetime_widgets: dict[tuple[str, str], DateTimeEdit] = {}
         self._list_summary: dict[tuple[str, str], CaptionLabel] = {}
         self._build_ui()
         self._load_config()
@@ -275,6 +280,11 @@ class FeaturePanel(QWidget):
         return label
 
     @staticmethod
+    def _is_read_only_feature(task_name: str, feature_name: str) -> bool:
+        """判断字段是否由程序自动维护，UI 上只读展示。"""
+        return str(task_name) == 'event' and str(feature_name) in _READ_ONLY_EVENT_FEATURES
+
+    @staticmethod
     def _add_card_title(layout: QVBoxLayout, title_text: str) -> None:
         title = BodyLabel(str(title_text))
         title.setStyleSheet('font-weight: 700; font-size: 14px; color: #1e293b;')
@@ -301,30 +311,34 @@ class FeaturePanel(QWidget):
             label = str(self._feature_label_map.get(feature_name, feature_name))
             hint_text = self._resolve_feature_hint(task_name, feature_name)
             if isinstance(value, list):
-                row = QWidget(card)
-                row_layout = QHBoxLayout(row)
-                row_layout.setContentsMargins(0, 0, 0, 0)
-                row_layout.setSpacing(8)
                 summary = CaptionLabel('未配置')
                 summary.setStyleSheet('color: #64748b;')
                 self._list_summary[(task_name, feature_name)] = summary
-                btn = PushButton('详情', row)
-                btn.clicked.connect(
-                    lambda _=False, t=task_name, f=feature_name: self._open_list_editor(t, f),
-                )
-                row_layout.addWidget(summary, 1)
-                row_layout.addWidget(btn)
-                field = QWidget(card)
-                field_layout = QVBoxLayout(field)
-                field_layout.setContentsMargins(0, 0, 0, 0)
-                field_layout.setSpacing(2)
-                field_layout.addWidget(row)
+                if self._is_read_only_feature(task_name, feature_name):
+                    field = summary
+                else:
+                    row = QWidget(card)
+                    row_layout = QHBoxLayout(row)
+                    row_layout.setContentsMargins(0, 0, 0, 0)
+                    row_layout.setSpacing(8)
+                    btn = PushButton('详情', row)
+                    btn.clicked.connect(
+                        lambda _=False, t=task_name, f=feature_name: self._open_list_editor(t, f),
+                    )
+                    row_layout.addWidget(summary, 1)
+                    row_layout.addWidget(btn)
+                    field = row
+                container = QWidget(card)
+                container_layout = QVBoxLayout(container)
+                container_layout.setContentsMargins(0, 0, 0, 0)
+                container_layout.setSpacing(2)
+                container_layout.addWidget(field)
                 if hint_text:
-                    hint = CaptionLabel(hint_text, field)
+                    hint = CaptionLabel(hint_text, container)
                     hint.setWordWrap(True)
                     hint.setStyleSheet(f'color: {SETTINGS_HINT_COLOR};')
-                    field_layout.addWidget(hint)
-                form.addRow(self._field_label(label, card), field)
+                    container_layout.addWidget(hint)
+                form.addRow(self._field_label(label, card), container)
                 continue
 
             if isinstance(value, bool):
@@ -345,6 +359,7 @@ class FeaturePanel(QWidget):
                 continue
 
             if isinstance(value, str):
+                read_only = self._is_read_only_feature(task_name, feature_name)
                 if feature_name.endswith('_enabled_time_range'):
                     start = self._build_time_edit(card)
                     start.timeChanged.connect(self._auto_save)
@@ -359,9 +374,23 @@ class FeaturePanel(QWidget):
                     row_layout.addWidget(end, 1)
                     self._time_range_widgets[(task_name, feature_name)] = (start, end)
                     field_widget: QWidget = row
+                elif feature_name.endswith('_end_time'):
+                    dt_edit = DateTimeEdit(card)
+                    dt_edit.setDisplayFormat('yyyy-MM-dd HH:mm:ss')
+                    dt_edit.setSymbolVisible(False)
+                    dt_edit.setMinimumWidth(0)
+                    dt_edit.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+                    dt_edit.setReadOnly(read_only)
+                    dt_edit.setCalendarPopup(not read_only)
+                    if not read_only:
+                        dt_edit.dateTimeChanged.connect(self._auto_save)
+                    self._datetime_widgets[(task_name, feature_name)] = dt_edit
+                    field_widget = dt_edit
                 else:
                     text_edit = LineEdit(card)
-                    text_edit.textChanged.connect(self._auto_save)
+                    text_edit.setReadOnly(read_only)
+                    if not read_only:
+                        text_edit.textChanged.connect(self._auto_save)
                     self._text_widgets[(task_name, feature_name)] = text_edit
                     field_widget = text_edit
                 field = QWidget(card)
@@ -564,6 +593,15 @@ class FeaturePanel(QWidget):
             factor = max(1, int(unit.currentData() or 1))
             feature_map[feature_name] = max(0, int(spin.value()) * factor)
             task_cfg.features = feature_map
+        for (task_name, feature_name), dt_edit in self._datetime_widgets.items():
+            task_cfg = self.config.tasks.get(task_name)
+            if task_cfg is None:
+                continue
+            feature_map = dict(task_cfg.features or {})
+            qdt = dt_edit.dateTime()
+            if qdt.isValid():
+                feature_map[feature_name] = qdt.toString('yyyy-MM-dd HH:mm:ss')
+            task_cfg.features = feature_map
         self.config.save()
         self.config_changed.emit(self.config)
 
@@ -622,6 +660,18 @@ class FeaturePanel(QWidget):
             number, factor = self._split_interval(max(0, parsed))
             spin.setValue(number)
             self._set_combo_data(unit, factor)
+        for (task_name, feature_name), dt_edit in self._datetime_widgets.items():
+            task_cfg = self.config.tasks.get(task_name)
+            if task_cfg is None:
+                continue
+            feature_map = task_cfg.features or {}
+            qdt = QDateTime.fromString(
+                str(feature_map.get(feature_name, '') or '').strip(),
+                'yyyy-MM-dd HH:mm:ss',
+            )
+            if not qdt.isValid():
+                qdt = QDateTime.fromString('2099-12-31 23:59:59', 'yyyy-MM-dd HH:mm:ss')
+            dt_edit.setDateTime(qdt)
         for task_name, feature_name in self._list_summary.keys():
             self._refresh_list_summary(task_name, feature_name)
 
