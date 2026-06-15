@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from loguru import logger
 
 from core.engine.task.registry import TaskResult
@@ -70,10 +72,36 @@ class TaskGift(TaskBase):
         return
 
     def _run_mall_gift(self):
-        """领取商城免费商品"""
+        """领取商城免费商品（支持商城加载失败时返回重试）。"""
         logger.info('领取流程: 检查商城领取')
-        self.ui.ui_ensure(page_mall, confirm_wait=0.5)
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            logger.info('领取流程: 进入商城 | attempt={}/{}', attempt, max_attempts)
+            self.ui.ui_ensure(page_mall, confirm_wait=0.5)
+            if self._wait_mall_free_loaded(timeout=3.0):
+                logger.info('领取流程: 商城内容已加载 | attempt={}', attempt)
+                self._claim_mall_free()
+                return
+            logger.warning('领取流程: 商城内容未加载 | attempt={}/{}', attempt, max_attempts)
+            if attempt < max_attempts:
+                logger.info('领取流程: 返回主页面重试')
+                self.ui.ui_ensure(page_main, confirm_wait=0.3)
+        logger.warning('领取流程: 商城领取重试次数用完')
 
+    def _wait_mall_free_loaded(self, timeout: float = 3.0) -> bool:
+        """等待商城免费物品按钮或已领取标记出现。"""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            self.ui.device.screenshot()
+            if self.ui.appear(BTN_MALL_FREE_DONE, threshold=0.65, offset=30):
+                return True
+            if self.ui.appear(BTN_MALL_FREE, threshold=0.65, offset=30):
+                return True
+            self.ui.device.sleep(0.5)
+        return False
+
+    def _claim_mall_free(self):
+        """执行商城免费商品领取点击循环。"""
         while 1:
             self.ui.device.screenshot()
             if self.ui.handle_click_close():
@@ -83,7 +111,6 @@ class TaskGift(TaskBase):
             if self.ui.appear_then_click(BTN_MALL_FREE, offset=30, threshold=0.65, interval=1):
                 continue
         logger.info('领取流程: 商城领取流程结束')
-        return
 
     def _run_mail_gift(self):
         """邮件领取"""

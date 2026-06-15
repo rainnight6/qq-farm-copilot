@@ -28,11 +28,6 @@ BTN_FRIEND_APPLY = Button(area={'qq': (220, 196, 318, 221), 'wechat': (220, 196,
 BTN_FRIEND_RIGHT_FRAME = Button(area={'qq': (141, 846, 153, 913), 'wechat': (141, 846, 153, 913)}, color={'qq': (198, 229, 133), 'wechat': (198, 229, 133)}, button={'qq': (141, 846, 153, 913), 'wechat': (141, 846, 153, 913)}, file={'qq': 'templates/qq/btn/btn_friend_right_frame.png', 'wechat': 'templates/qq/btn/btn_friend_right_frame.png'}, name='btn_friend_right_frame')
 BTN_GRASS = Button(area={'qq': (247, 578, 282, 601), 'wechat': (247, 578, 282, 601)}, color={'qq': (116, 171, 63), 'wechat': (116, 171, 63)}, button={'qq': (247, 578, 282, 601), 'wechat': (247, 578, 282, 601)}, file={'qq': 'templates/qq/btn/btn_grass.png', 'wechat': 'templates/qq/btn/btn_grass.png'}, name='btn_grass')
 BTN_GRASS_END = Button(area={'qq': (232, 545, 270, 571), 'wechat': (232, 545, 270, 571)}, color={'qq': (147, 145, 136), 'wechat': (147, 145, 136)}, button={'qq': (232, 545, 270, 571), 'wechat': (232, 545, 270, 571)}, file={'qq': 'templates/qq/btn/btn_grass_end.png', 'wechat': 'templates/qq/btn/btn_grass_end.png'}, name='btn_grass_end')
-BTN_HAHA_SHOP = Button(area={'qq': (454, 266, 538, 282), 'wechat': (454, 266, 538, 282)}, color={'qq': (188, 159, 134), 'wechat': (188, 159, 134)}, button={'qq': (454, 266, 538, 282), 'wechat': (454, 266, 538, 282)}, file={'qq': 'templates/qq/event/btn_haha_shop.png', 'wechat': 'templates/qq/event/btn_haha_shop.png'}, name='btn_haha_shop')
-BTN_HAHA_SHOP_CHECK = Button(area={'qq': (135, 155, 246, 200), 'wechat': (135, 155, 246, 200)}, color={'qq': (183, 216, 161), 'wechat': (183, 216, 161)}, button={'qq': (135, 155, 246, 200), 'wechat': (135, 155, 246, 200)}, file={'qq': 'templates/qq/event/btn_haha_shop_check.png', 'wechat': 'templates/qq/event/btn_haha_shop_check.png'}, name='btn_haha_shop_check')
-BTN_HAHA_SHOP_CLOSE = Button(area={'qq': (471, 154, 501, 182), 'wechat': (471, 154, 501, 182)}, color={'qq': (186, 135, 86), 'wechat': (186, 135, 86)}, button={'qq': (471, 154, 501, 182), 'wechat': (471, 154, 501, 182)}, file={'qq': 'templates/qq/event/btn_haha_shop_close.png', 'wechat': 'templates/qq/event/btn_haha_shop_close.png'}, name='btn_haha_shop_close')
-BTN_HAHA_SHOP_FREE_REFRESH = Button(area={'qq': (122, 826, 210, 849), 'wechat': (122, 826, 210, 849)}, color={'qq': (186, 151, 98), 'wechat': (186, 151, 98)}, button={'qq': (122, 826, 210, 849), 'wechat': (122, 826, 210, 849)}, file={'qq': 'templates/qq/event/btn_haha_shop_free_refresh.png', 'wechat': 'templates/qq/event/btn_haha_shop_free_refresh.png'}, name='btn_haha_shop_free_refresh')
-BTN_HAHA_SHOP_ITEM = Button(area={'qq': (231, 538, 238, 546), 'wechat': (231, 538, 238, 546)}, color={'qq': (180, 160, 142), 'wechat': (180, 160, 142)}, button={'qq': (231, 538, 238, 546), 'wechat': (231, 538, 238, 546)}, file={'qq': 'templates/qq/event/btn_haha_shop_item.png', 'wechat': 'templates/qq/event/btn_haha_shop_item.png'}, name='btn_haha_shop_item')
 BTN_HARVEST = Button(area={'qq': (246, 688, 287, 720), 'wechat': (246, 688, 287, 720)}, color={'qq': (221, 169, 139), 'wechat': (221, 169, 139)}, button={'qq': (246, 688, 287, 720), 'wechat': (246, 688, 287, 720)}, file={'qq': 'templates/qq/btn/btn_harvest.png', 'wechat': 'templates/qq/btn/btn_harvest.png'}, name='btn_harvest')  # 一键收获
 BTN_HARVEST_POP = Button(area={'qq': (431, 462, 483, 479), 'wechat': (431, 462, 483, 479)}, color={'qq': (141, 162, 164), 'wechat': (141, 162, 164)}, button={'qq': (431, 462, 483, 479), 'wechat': (431, 462, 483, 479)}, file={'qq': 'templates/qq/btn/btn_harvest_pop.png', 'wechat': 'templates/qq/btn/btn_harvest_pop.png'}, name='btn_harvest_pop')
 BTN_HEFENG_100 = Button(area={'qq': (462, 270, 528, 286), 'wechat': (462, 270, 528, 286)}, color={'qq': (187, 159, 135), 'wechat': (187, 159, 135)}, button={'qq': (462, 270, 528, 286), 'wechat': (462, 270, 528, 286)}, file={'qq': 'templates/qq/event/btn_hefeng_100.png', 'wechat': 'templates/qq/event/btn_hefeng_100.png'}, name='btn_hefeng_100')
@@ -147,11 +142,6 @@ ASSET_NAME_TO_CONST = {
     'btn_friend_right_frame': BTN_FRIEND_RIGHT_FRAME,
     'btn_grass': BTN_GRASS,
     'btn_grass_end': BTN_GRASS_END,
-    'btn_haha_shop': BTN_HAHA_SHOP,
-    'btn_haha_shop_check': BTN_HAHA_SHOP_CHECK,
-    'btn_haha_shop_close': BTN_HAHA_SHOP_CLOSE,
-    'btn_haha_shop_free_refresh': BTN_HAHA_SHOP_FREE_REFRESH,
-    'btn_haha_shop_item': BTN_HAHA_SHOP_ITEM,
     'btn_harvest': BTN_HARVEST,
     'btn_harvest_pop': BTN_HARVEST_POP,
     'btn_hefeng_100': BTN_HEFENG_100,
