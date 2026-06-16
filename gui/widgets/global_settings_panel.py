@@ -43,7 +43,7 @@ from utils.logger import (
     switch_log_directory,
 )
 
-PROJECT_URL = 'https://github.com/megumiss/qq-farm-copilot'
+PROJECT_URL = 'https://github.com/490720818/qq-farm-copilot'
 LICENSE_URL = f'{PROJECT_URL}/blob/main/LICENSE'
 FREE_NOTICE_TEXT = '本项目仅供学习测试使用，自动化操作可能违反游戏服务条款，由此产生的一切后果由使用者自行承担。'
 GPL_NOTICE_TEXT = '本项目基于 GPL-3.0 协议开源，使用、修改和分发时请遵守 GPL 条款并保留版权与许可声明。'

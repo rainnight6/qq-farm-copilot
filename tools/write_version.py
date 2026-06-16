@@ -31,7 +31,7 @@ def _sanitize_python_string(value: str) -> str:
 
 def write_version_file(version_file: Path, version: str, repo: str) -> None:
     version = str(version or '').strip() or '0.0.0-dev'
-    repo = str(repo or '').strip() or 'megumiss/qq-farm-copilot'
+    repo = str(repo or '').strip() or '490720818/qq-farm-copilot'
     content = (
         '"""应用版本信息。\n\n'
         '此文件可由 tools/write_version.py 在打包流程中自动更新。'
@@ -47,7 +47,7 @@ def write_version_file(version_file: Path, version: str, repo: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description='Write utils/version.py from tag.')
     parser.add_argument('--tag', default='', help='Release tag, e.g. v1.2.3')
-    parser.add_argument('--repo', default='megumiss/qq-farm-copilot', help='GitHub repository slug')
+    parser.add_argument('--repo', default='490720818/qq-farm-copilot', help='GitHub repository slug')
     parser.add_argument('--output', default='utils/version.py', help='Output python file path')
     args = parser.parse_args()
 
