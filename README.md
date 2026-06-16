@@ -11,6 +11,7 @@
 - 本软件完全免费，若付费购买请立即退款。
 - 请认准项目主页获取版本与说明，谨防二次售卖、捆绑分发与虚假收费。
 - 项目地址：`https://github.com/490720818/qq-farm-copilot`
+- 原项目地址：`https://github.com/megumiss/qq-farm-copilot`
 - 本项目基于 [qq-farm-auto](https://github.com/Z7ANN/qq-farm-auto) 重构而来
 
 ## 已实现功能
@@ -39,6 +40,8 @@
 - [x] 定时重启窗口
 - [x] 支持QQ/微信平台后台运行
 - [x] 支持QQ/微信平台多开
+- [x] 通用活动
+- [x] 自动种草
 
 ## 当前实现概览
 
