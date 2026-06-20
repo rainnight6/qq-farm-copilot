@@ -105,12 +105,12 @@ class TaskGrass(TaskBase):
                 logger.warning('自动种草: 未识别到地块网格，结束')
                 break
 
-            # 3. 点击 1-1 地块打开种草弹窗
+            # 4. 点击 1-1 地块打开种草弹窗
             if not self._open_grass_popup(land_cells=land_cells):
                 logger.info('自动种草: 未打开种草弹窗，结束')
                 break
 
-            # 4. 识别种草按钮/种草结束按钮
+            # 5. 识别种草按钮/种草结束按钮
             detection = self._detect_grass_or_end()
             if detection is None:
                 consecutive_fail_count += 1
@@ -139,7 +139,7 @@ class TaskGrass(TaskBase):
             consecutive_fail_count = 0
             logger.info('自动种草: 识别到草图标 | score={:.3f}', score)
 
-            # 5. 按配置概率决定是否跳过当前好友（0 不跳过，1 全部跳过无意义）
+            # 6. 按配置概率决定是否跳过当前好友（0 不跳过，1 全部跳过无意义）
             skip_probability = max(0.0, min(1.0, float(self.task.grass.feature.skip_probability)))
             if 0.0 < skip_probability and random.random() < skip_probability:
                 logger.info(
@@ -152,13 +152,13 @@ class TaskGrass(TaskBase):
                     break
                 continue
 
-            # 6. 拖拽种草到所有地块
+            # 7. 拖拽种草到所有地块
             self._drag_grass_to_lands(grass_point, land_cells)
 
             # 关闭弹窗/清空状态，准备切换下一位好友
             self._close_grass_popup()
 
-            # 6. 切换下一位好友
+            # 8. 切换下一位好友
             if not self._goto_next_friend():
                 logger.info('自动种草: 切换下一位好友失败，结束')
                 break

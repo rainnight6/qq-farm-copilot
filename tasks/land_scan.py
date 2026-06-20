@@ -888,6 +888,20 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
             return ''
         return str(match.group(1))
 
+    @staticmethod
+    def _parse_maturity_countdown_seconds(text: str) -> int | None:
+        """把 HH:MM:SS 解析为秒数。"""
+        countdown = TaskLandScan._extract_maturity_time(text)
+        if not countdown:
+            return None
+        try:
+            hour, minute, second = map(int, countdown.split(':'))
+            if minute < 0 or minute > 59 or second < 0 or second > 59:
+                return None
+            return hour * 3600 + minute * 60 + second
+        except Exception:
+            return None
+
     def _update_plot_fields(
         self,
         *,
@@ -943,6 +957,36 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
             if need_planting is not None and old_need_planting != bool(need_planting):
                 item['need_planting'] = bool(need_planting)
                 changed = True
+
+            # 地块巡查更新后，若真实剩余成熟时间变大或上次已成熟，清空普通化肥冷却。
+            if normalized_countdown and normalized_countdown_sync_time:
+                try:
+                    new_sync_time = datetime.strptime(normalized_countdown_sync_time, '%Y-%m-%d %H:%M:%S')
+                    new_countdown_seconds = self._parse_maturity_countdown_seconds(normalized_countdown)
+                    if new_countdown_seconds is not None:
+                        new_real_remaining = int(
+                            (new_sync_time + timedelta(seconds=new_countdown_seconds) - datetime.now()).total_seconds()
+                        )
+                        new_real_remaining = max(0, new_real_remaining)
+                        old_real_remaining_text = str(item.get('last_real_remaining_seconds') or '').strip()
+                        old_real_remaining = int(old_real_remaining_text) if old_real_remaining_text else 0
+                        if new_real_remaining > old_real_remaining or old_real_remaining <= 0:
+                            old_fertilize_time = str(item.get('last_fertilize_time') or '').strip()
+                            if old_fertilize_time:
+                                item['last_fertilize_time'] = ''
+                                changed = True
+                            if old_real_remaining_text:
+                                item['last_real_remaining_seconds'] = ''
+                                changed = True
+                            logger.info(
+                                '地块巡查: 清空普通化肥冷却 | 序号={} new_remaining={}s old_remaining={}s',
+                                plot_id,
+                                new_real_remaining,
+                                old_real_remaining,
+                            )
+                except Exception:
+                    pass
+
             return changed
         return False
 

@@ -148,7 +148,11 @@ class TaskMainActionsMixin:
         self.ui.device.click_button(GOTO_MAIN)
         self.align_view_by_background_tree(log_prefix='自动施肥')
 
-        target_plot_refs = self._collect_fertilize_plot_refs(threshold_seconds=threshold_seconds)
+        use_organic = bool(features.use_organic_fertilizer)
+        target_plot_refs = self._collect_fertilize_plot_refs(
+            threshold_seconds=threshold_seconds,
+            use_organic=use_organic,
+        )
         if not target_plot_refs:
             logger.info('自动施肥: 没有命中成熟阈值的地块，结束本轮')
             return None
@@ -235,11 +239,72 @@ class TaskMainActionsMixin:
         self.ui.device.sleep(0.2)
         self.ui.ui_ensure(page_main)
 
+        fertilized_refs = [str(ref) for ref, _ in all_targets]
         for _ in all_targets:
             self.engine._record_stat(ActionType.FERTILIZE)
 
+        fertilized_refs = [str(ref) for ref, _ in all_targets]
+        if fertilized_refs and not use_organic:
+            self._record_fertilize_time(fertilized_refs, threshold_seconds=threshold_seconds)
+
         logger.info('自动施肥: 结束 | fertilized={}/{}', len(all_targets), required_hours)
         return '自动施肥'
+
+    def _record_fertilize_time(self, plot_refs: list[str], *, threshold_seconds: int) -> None:
+        """记录地块本次施肥时间与真实剩余成熟时间，用于普通化肥冷却防重施。"""
+        if not plot_refs:
+            return
+        plots = self.config.land.plots
+        if not isinstance(plots, list):
+            return
+        now = datetime.now()
+        now_text = now.replace(microsecond=0).strftime('%Y-%m-%d %H:%M:%S')
+        changed = False
+        for plot_ref in plot_refs:
+            target = str(plot_ref or '').strip()
+            if not target:
+                continue
+            for item in plots:
+                if not isinstance(item, dict):
+                    continue
+                if str(item.get('plot_id', '')).strip() != target:
+                    continue
+                countdown_seconds = self._parse_fertilize_countdown_seconds(item.get('maturity_countdown'))
+                sync_time_text = str(item.get('countdown_sync_time') or '').strip().replace('T', ' ')
+                real_remaining_seconds: int | None = None
+                if countdown_seconds is not None and sync_time_text:
+                    try:
+                        sync_time = datetime.strptime(sync_time_text, '%Y-%m-%d %H:%M:%S')
+                        real_remaining_seconds = int(
+                            (sync_time + timedelta(seconds=countdown_seconds) - now).total_seconds()
+                        )
+                        real_remaining_seconds = max(0, real_remaining_seconds)
+                    except Exception:
+                        pass
+                if (
+                    real_remaining_seconds is None
+                    or real_remaining_seconds <= 0
+                    or real_remaining_seconds > int(threshold_seconds)
+                ):
+                    real_remaining_seconds = int(threshold_seconds)
+
+                old_time = str(item.get('last_fertilize_time') or '').strip()
+                old_remaining = str(item.get('last_real_remaining_seconds') or '').strip()
+                if old_time != now_text:
+                    item['last_fertilize_time'] = now_text
+                    changed = True
+                if old_remaining != str(real_remaining_seconds):
+                    item['last_real_remaining_seconds'] = real_remaining_seconds
+                    changed = True
+                break
+        if not changed:
+            return
+        try:
+            self.config.save()
+        except Exception as exc:
+            logger.warning('自动施肥: 保存施肥时间失败 | refs={} error={}', plot_refs, exc)
+            return
+        logger.info('自动施肥: 已记录普通化肥施肥时间 | refs={} time={}', plot_refs, now_text)
 
     def _trigger_timed_harvest_after_fertilize(self) -> None:
         """施肥后立即触发一次定时收获，收获可能已成熟的作物。"""
@@ -254,8 +319,8 @@ class TaskMainActionsMixin:
         logger.info('自动播种: 触发一次地块巡查')
         self.task.land_scan.call(force_call=True)
 
-    def _collect_fertilize_plot_refs(self, *, threshold_seconds: int) -> list[str]:
-        """从土地详情里筛选真实剩余成熟时间小于阈值的地块。"""
+    def _collect_fertilize_plot_refs(self, *, threshold_seconds: int, use_organic: bool) -> list[str]:
+        """从土地详情里筛选真实剩余成熟时间小于阈值的地块；普通化肥冷却期为该地块真实剩余成熟时间。"""
         now = datetime.now()
         candidates: list[tuple[int, str]] = []
         for item in self.parse_land_detail_plots():
@@ -272,6 +337,25 @@ class TaskMainActionsMixin:
             real_remaining_seconds = max(0, real_remaining_seconds)
             if real_remaining_seconds <= 0 or real_remaining_seconds > int(threshold_seconds):
                 continue
+            if not use_organic:
+                last_fertilize_text = str(item.get('last_fertilize_time') or '').strip().replace('T', ' ')
+                last_real_remaining_text = str(item.get('last_real_remaining_seconds') or '').strip()
+                if last_fertilize_text and last_real_remaining_text:
+                    try:
+                        last_fertilize_time = datetime.strptime(last_fertilize_text, '%Y-%m-%d %H:%M:%S')
+                        last_real_remaining_seconds = int(last_real_remaining_text)
+                        elapsed_seconds = int((now - last_fertilize_time).total_seconds())
+                        cooldown_seconds = max(0, last_real_remaining_seconds)
+                        if 0 <= elapsed_seconds < cooldown_seconds:
+                            logger.debug(
+                                '自动施肥: 普通化肥冷却中，跳过 | plot={} elapsed={}s cooldown={}s',
+                                plot_ref,
+                                elapsed_seconds,
+                                cooldown_seconds,
+                            )
+                            continue
+                    except Exception:
+                        pass
             candidates.append((real_remaining_seconds, plot_ref))
 
         candidates.sort(key=lambda row: (row[0], row[1]))
