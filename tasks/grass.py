@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING
 
+import numpy as np
 from loguru import logger
 
 from core.base.timer import Timer
@@ -37,6 +38,10 @@ if TYPE_CHECKING:
 GRASS_DETECT_THRESHOLD = 0.74
 # 识别种草结束按钮的置信度阈值。
 GRASS_END_DETECT_THRESHOLD = 0.74
+# 草图标参考平均颜色（BGR，由模板非透明区域统计得到）。
+GRASS_COLOR_REF_BGR = np.array([63.0, 171.0, 116.0], dtype=np.float32)
+# 结束图标参考平均颜色（BGR，由模板非透明区域统计得到）。
+GRASS_END_COLOR_REF_BGR = np.array([136.0, 145.0, 147.0], dtype=np.float32)
 # 识别帮忙按钮的置信度阈值。
 HELP_DETECT_THRESHOLD = 0.74
 # 识别偷菜按钮的置信度阈值。
@@ -338,7 +343,7 @@ class TaskGrass(TaskBase):
         self.ui.device.sleep(0.3)
 
     def _detect_grass_or_end(self) -> tuple[str, tuple[int, int], float] | None:
-        """同时识别种草按钮与种草结束按钮，返回置信度更高的结果。"""
+        """同时识别种草按钮与种草结束按钮，按匹配区域颜色仲裁真实类型。"""
         self.ui.device.screenshot()
 
         grass_loc = self.ui.appear_location(
@@ -368,25 +373,52 @@ class TaskGrass(TaskBase):
             )
             return None
 
-        if grass_ok and not end_ok:
-            return ('grass', grass_loc, grass_score)
-        if not grass_ok and end_ok:
-            return ('end', end_loc, end_score)
+        # 两图标形状相同、仅颜色不同，模板匹配可能互相串高相似度，
+        # 因此以命中区域平均颜色更接近哪种参考色作为仲裁依据。
+        region_button = BTN_GRASS if grass_ok else BTN_GRASS_END
+        kind = self._classify_grass_region(region_button)
 
-        # 两者都命中，取置信度更高者
-        if grass_score >= end_score:
+        if kind == 'grass':
+            loc = grass_loc if grass_ok else end_loc
+            score = grass_score if grass_ok else end_score
             logger.debug(
-                '自动种草: 草图标={:.3f} >= 结束图标={:.3f}, 按草图标处理',
+                '自动种草: 颜色仲裁为草图标 | 草相似度={:.3f}, 结束相似度={:.3f}',
                 grass_score,
                 end_score,
             )
-            return ('grass', grass_loc, grass_score)
+            return ('grass', loc, score)
+
+        loc = end_loc if end_ok else grass_loc
+        score = end_score if end_ok else grass_score
         logger.debug(
-            '自动种草: 结束图标={:.3f} > 草图标={:.3f}, 按结束图标处理',
-            end_score,
+            '自动种草: 颜色仲裁为结束图标 | 草相似度={:.3f}, 结束相似度={:.3f}',
             grass_score,
+            end_score,
         )
-        return ('end', end_loc, end_score)
+        return ('end', loc, score)
+
+    def _classify_grass_region(self, button) -> str:
+        """根据按钮匹配区域的平均颜色判断是草图标还是结束图标。"""
+        image = self.ui.device.image
+        offset = getattr(button, '_button_offset', None)
+        if image is None or offset is None:
+            return 'end'
+
+        x1, y1, x2, y2 = offset
+        h, w = image.shape[:2]
+        x1 = max(0, min(int(x1), w - 1))
+        y1 = max(0, min(int(y1), h - 1))
+        x2 = max(x1 + 1, min(int(x2), w))
+        y2 = max(y1 + 1, min(int(y2), h))
+        region = image[y1:y2, x1:x2]
+        if region.size == 0:
+            return 'end'
+
+        mean_bgr = region.mean(axis=(0, 1)).astype(np.float32)
+        dist_grass = float(np.linalg.norm(mean_bgr - GRASS_COLOR_REF_BGR))
+        dist_end = float(np.linalg.norm(mean_bgr - GRASS_END_COLOR_REF_BGR))
+
+        return 'grass' if dist_grass < dist_end else 'end'
 
     def _drag_grass_to_lands(
         self,

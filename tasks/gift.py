@@ -122,7 +122,7 @@ class TaskGift(TaskBase):
             return
         logger.info('领取流程: 检测到月卡按钮，点击')
         self.ui.device.click_button(BTN_MONTHLY_CARD)
-        self.ui.device.sleep(0.5)
+        self.ui.device.sleep(1.05)
         self.ui.device.screenshot()
         if self.ui.appear(BTN_MONTHLY_CARD_ACCEPT, threshold=0.8, offset=30):
             logger.info('领取流程: 检测到月卡领取确认按钮，点击')
