@@ -388,10 +388,11 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
 
     @staticmethod
     def _resolve_planted_plot_refs_by_live_coords(
+        self,
         initial_targets: list[tuple[str, tuple[int, int]]],
         remain_land_coords: list[tuple[int, int]],
         *,
-        near_distance: float = 20.0,
+        near_distance: float = 30.0,
     ) -> list[str]:
         """根据播前地块引用与播后实时空地坐标，计算已播种地块引用。"""
         if not initial_targets:
@@ -400,12 +401,28 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
         planted_refs: list[str] = []
         for plot_ref, point in initial_targets:
             px, py = int(point[0]), int(point[1])
-            is_remain = any(
-                math.hypot(float(px - int(rx)), float(py - int(ry))) <= float(near_distance)
-                for rx, ry in remain_land_coords
+            min_distance = (
+                min(math.hypot(float(px - int(rx)), float(py - int(ry))) for rx, ry in remain_land_coords)
+                if remain_land_coords
+                else float('inf')
             )
+            is_remain = min_distance <= float(near_distance)
             if not is_remain:
                 planted_refs.append(str(plot_ref))
+            logger.debug(
+                '自动播种: 播后地块匹配 | 序号={} 坐标=({},{}) 最近空地距离={:.1f} 已播种={}',
+                plot_ref,
+                px,
+                py,
+                min_distance,
+                not is_remain,
+            )
+        logger.info(
+            '自动播种: 播后推断已播种地块 | total={} planted={} remain={}',
+            len(initial_targets),
+            planted_refs,
+            len(remain_land_coords),
+        )
         return planted_refs
 
     def _open_seed_popup(self, land_click_point: tuple[int, int]) -> str:

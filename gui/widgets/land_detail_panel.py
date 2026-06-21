@@ -669,7 +669,7 @@ class LandDetailPanel(QWidget):
         self.config_changed.emit(self.config)
         return True
 
-    def _load_from_config(self) -> None:
+    def _load_from_config(self, *, force: bool = False) -> None:
         profile_cfg = self.config.land.profile
         level_value = int(profile_cfg.level)
         if level_value <= 0:
@@ -691,7 +691,7 @@ class LandDetailPanel(QWidget):
         items = self.config.land.plots
         if not isinstance(items, list):
             items = []
-        self.set_land_data(items)
+        self.set_land_data(items, force=force)
 
     def _on_toggle_edit(self) -> None:
         if self._editing:
@@ -703,8 +703,8 @@ class LandDetailPanel(QWidget):
                 return
         self._set_edit_mode(not self._editing)
 
-    def set_land_data(self, items: list[dict[str, object]]) -> None:
-        """按 `plot_id` 批量设置地块数据。"""
+    def set_land_data(self, items: list[dict[str, object]], *, force: bool = False) -> None:
+        """按 `plot_id` 批量设置地块数据；force=True 时强制使用配置值，不保留 UI 当前较小倒计时。"""
         now = datetime.now()
         for item in items:
             if not isinstance(item, dict):
@@ -730,7 +730,7 @@ class LandDetailPanel(QWidget):
                 )
                 if left_seconds <= 0:
                     apply_item['countdown_sync_time'] = ''
-            cell.set_data(apply_item, prefer_lower_countdown=True)
+            cell.set_data(apply_item, prefer_lower_countdown=not force)
 
     def get_land_data(self) -> list[dict[str, object]]:
         """读取当前全部地块数据。"""
@@ -739,7 +739,7 @@ class LandDetailPanel(QWidget):
     def set_config(self, config: AppConfig) -> None:
         self.config = config
         self._set_edit_mode(False)
-        self._load_from_config()
+        self._load_from_config(force=True)
 
     def _on_countdown_tick(self) -> None:
         changed = False

@@ -970,7 +970,8 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
                         new_real_remaining = max(0, new_real_remaining)
                         old_real_remaining_text = str(item.get('last_real_remaining_seconds') or '').strip()
                         old_real_remaining = int(old_real_remaining_text) if old_real_remaining_text else 0
-                        if new_real_remaining > old_real_remaining or old_real_remaining <= 0:
+                        # 加120秒防止计算误差
+                        if new_real_remaining > (old_real_remaining + 120) or old_real_remaining <= 0:
                             old_fertilize_time = str(item.get('last_fertilize_time') or '').strip()
                             if old_fertilize_time:
                                 item['last_fertilize_time'] = ''
