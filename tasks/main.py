@@ -290,7 +290,7 @@ class TaskMain(
         if features.auto_fertilize:
             fertilize_result = self._run_feature_fertilize()
             if fertilize_result:
-                self._trigger_timed_harvest_after_fertilize()
+                self._trigger_feature_harvest_after_fertilize()
 
         # 自动升级
         if features.auto_upgrade:

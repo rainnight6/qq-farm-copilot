@@ -306,10 +306,14 @@ class TaskMainActionsMixin:
             return
         logger.info('自动施肥: 已记录普通化肥施肥时间 | refs={} time={}', plot_refs, now_text)
 
-    def _trigger_timed_harvest_after_fertilize(self) -> None:
-        """施肥后立即触发一次定时收获，收获可能已成熟的作物。"""
-        logger.info('自动施肥: 触发一次定时收获')
-        self.task.timed_harvest.call(force_call=True)
+    def _trigger_feature_harvest_after_fertilize(self) -> str | None:
+        """施肥后立即调用一次一键收获，将刚施肥成熟的作物收掉。"""
+        self.ui.ui_ensure(page_main)
+        self.ui.device.click_button(GOTO_MAIN)
+        self.ui.device.sleep(0.3)
+        self.align_view_by_background_tree(log_prefix='一键收获-施肥后回正')
+        logger.info('自动施肥: 触发一次一键收获')
+        return self._run_feature_harvest()
 
     def _trigger_land_scan_after_plant(self) -> None:
         """播种后若地块巡查已启用，则立即触发一次巡查更新地块状态。"""
@@ -317,6 +321,11 @@ class TaskMainActionsMixin:
             logger.info('自动播种: 地块巡查未启用，跳过触发')
             return
         logger.info('自动播种: 触发一次地块巡查')
+        # 播后画面可能仍有惯性/弹窗残留，先清理并回正，避免地块巡查初始锚点识别偏移
+        self.ui.ui_ensure(page_main)
+        self.ui.device.click_button(GOTO_MAIN)
+        self.ui.device.sleep(0.3)
+        self.align_view_by_background_tree(log_prefix='自动播种-播后回正')
         self.task.land_scan.call(force_call=True)
 
     def _collect_fertilize_plot_refs(self, *, threshold_seconds: int, use_organic: bool) -> list[str]:

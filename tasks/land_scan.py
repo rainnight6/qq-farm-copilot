@@ -122,7 +122,16 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         _ = rect
         logger.info('地块巡查: 开始')
         self.ui.ui_ensure(page_main)
-        self.align_view_by_background_tree(log_prefix='地块巡查')
+        aligned = False
+        for attempt in range(3):
+            aligned = self.align_view_by_background_tree(log_prefix='地块巡查')
+            if aligned:
+                break
+            logger.warning('地块巡查: 画面回正失败，清理弹窗后重试 | attempt={}', attempt + 1)
+            self.ui.device.click_button(GOTO_MAIN)
+            self.ui.device.sleep(0.5)
+        if not aligned:
+            logger.warning('地块巡查: 画面回正多次失败，继续尝试执行')
         right_swipe_times = int(self.config.planting.land_swipe_right_times)
         left_swipe_times = int(self.config.planting.land_swipe_left_times)
         logger.info('地块巡查: 滑动次数 | 右滑={} 左滑={}', right_swipe_times, left_swipe_times)
@@ -131,6 +140,7 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         # self.ui.device.click_button(GOTO_MAIN)
 
         # 在回正状态下同时识别左右锚点，用真实间距推断侧滑后的对侧锚点。
+        self.ui.device.sleep(0.2)
         self.ui.device.screenshot()
         full_right_anchor = self.ui.appear_location(
             BTN_LAND_RIGHT, offset=(-30, -30, 160, 30), threshold=0.9, static=False
@@ -179,6 +189,10 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
                 column_count=LAND_SCAN_RIGHT_STAGE_COL_COUNT,
                 scan_direction='rtl',
             )
+
+            # 右半阶段可能产生边缘修正滑动，先回正再进入左半阶段，避免左滑起点偏移
+            self.align_view_by_background_tree(log_prefix='地块巡查-阶段回正')
+            self.ui.device.sleep(0.2)
 
             # 左滑：手指从 P2 滑向 P1，画面向左侧移动，露出左侧地块
             logger.info('地块巡查: 开始左滑')
