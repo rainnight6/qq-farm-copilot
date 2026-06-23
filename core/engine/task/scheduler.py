@@ -50,6 +50,9 @@ class TaskScheduler(QObject):
             'pending_tasks': 0,
             'waiting_tasks': 0,
             'recovery_total': 0,
+            'exception_count': 0,
+            'repair_count': 0,
+            'restart_count': 0,
             'recovery_last_error': '--',
             'recovery_last_action': '--',
             'recovery_last_outcome': '--',
@@ -94,6 +97,8 @@ class TaskScheduler(QObject):
         """执行 `reset stats` 相关处理。"""
         for key in self._stats:
             self._stats[key] = 0
+        for key in ('exception_count', 'repair_count', 'restart_count'):
+            self._runtime_metrics[key] = 0
         self.stats_updated.emit(self.get_stats())
 
     def force_state(self, state: BotState | str):
@@ -122,6 +127,9 @@ class TaskScheduler(QObject):
             'pending_tasks',
             'waiting_tasks',
             'recovery_total',
+            'exception_count',
+            'repair_count',
+            'restart_count',
             'recovery_last_error',
             'recovery_last_action',
             'recovery_last_outcome',
@@ -129,6 +137,20 @@ class TaskScheduler(QObject):
         ):
             if key in kwargs and self._runtime_metrics.get(key) != kwargs[key]:
                 self._runtime_metrics[key] = kwargs[key]
+                changed = True
+        if changed:
+            self.stats_updated.emit(self.get_stats())
+
+    def increment_recovery_counters(self, *, exception: int = 0, repair: int = 0, restart: int = 0) -> None:
+        """原子递增异常/修复/重启计数器。"""
+        changed = False
+        for key, delta in (
+            ('exception_count', exception),
+            ('repair_count', repair),
+            ('restart_count', restart),
+        ):
+            if delta:
+                self._runtime_metrics[key] = int(self._runtime_metrics.get(key, 0)) + int(delta)
                 changed = True
         if changed:
             self.stats_updated.emit(self.get_stats())

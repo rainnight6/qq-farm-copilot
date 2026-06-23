@@ -31,7 +31,7 @@
 - 活动任务：`config.tasks.event`（默认关闭；`trigger=daily`，默认 `daily_times=["10:01"]`；`features.activity_name/resources/use_coupon/end_time` 记录当期活动配置与结束时间）
 - 定时收获任务：`config.tasks.timed_harvest`（默认开启；`trigger=daily`，默认 `daily_times=["00:00"]`；`features.aggregation_seconds` 默认 `60` 秒；`features.priority_window_seconds` 默认 `120` 秒；依赖地块巡查结果生成后续执行点）
 - 高级配置：`config.safety.debug_log_enabled` 控制 Debug 日志输出；`config.safety.stuck_seconds`（默认 `60` 秒）与 `config.safety.stuck_long_wait_seconds`（默认 `120` 秒）控制无有效点击的卡死判定阈值
-- 异常恢复配置：`config.recovery`（`task_restart_attempts/task_retry_delay_seconds/window_launch_wait_timeout_seconds/startup_retry_step_sleep_seconds/startup_stabilize_timeout_seconds`）
+- 异常恢复配置：`config.recovery`（`task_restart_attempts/task_retry_delay_seconds/window_launch_wait_timeout_seconds/startup_retry_step_sleep_seconds/startup_stabilize_timeout_seconds/prefer_repair_before_restart`）；`prefer_repair_before_restart` 为 `true` 时，页面未知/卡死/截图/窗口异常会先尝试一键修复（最多 3 次），失败后 fall back 到重启任务
 - 通知配置：`config.notification`（`exception_notify_enabled/win_toast_enabled/onepush_config`；仅在触发人工接管停机时发送异常通知）
 - 全局日志保留：`%APPDATA%/QQFarmCopilot/app_settings.json -> logging.retention_days`（单位天，默认 `7`；启动与全局设置变更时清理过期 `.log`）
 - 截图频率：`config.screenshot.capture_interval_seconds`（默认 `0.3` 秒；`0` 表示不限制最小截图间隔）

@@ -33,6 +33,9 @@ class StatusPanel(QWidget):
             'farming',
             'fertilize',
             'sell',
+            'exception_count',
+            'repair_count',
+            'restart_count',
         }
         self._build_ui()
 
@@ -46,6 +49,9 @@ class StatusPanel(QWidget):
         self._add_cell(runtime_grid, 0, 1, '已运行', 'elapsed', '--')
         self._add_cell(runtime_grid, 0, 2, '平台', 'platform', '--')
         self._add_cell(runtime_grid, 0, 3, '窗口ID', 'window_id', '--')
+        self._add_cell(runtime_grid, 1, 0, '异常', 'exception_count', '0')
+        self._add_cell(runtime_grid, 1, 1, '修复', 'repair_count', '0')
+        self._add_cell(runtime_grid, 1, 2, '重启', 'restart_count', '0')
         root.addWidget(runtime_card)
 
         tasks_card, tasks_grid = self._build_card('任务队列', FluentIcon.CALENDAR)
@@ -265,3 +271,7 @@ class StatusPanel(QWidget):
             value = self._safe_int(stats.get(key, 0))
             self._set_value(key, value)
             self._set_counter_color(key, value, '#0F766E', '#2DD4BF')
+        for key in ('exception_count', 'repair_count', 'restart_count'):
+            value = self._safe_int(stats.get(key, 0))
+            self._set_value(key, value)
+            self._set_counter_color(key, value, '#B45309', '#FBBF24')

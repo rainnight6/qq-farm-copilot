@@ -190,6 +190,16 @@ class SettingsPanel(QWidget):
         window_repair_delay_tip.setStyleSheet('color: #d97706;')
         env_form.addRow(self._field_label('', env_card), window_repair_delay_tip)
 
+        self.prefer_repair_before_restart = CheckBox('优先使用修复', env_card)
+        env_form.addRow(self._field_label('异常恢复', env_card), self.prefer_repair_before_restart)
+        prefer_repair_tip = CaptionLabel(
+            '遇到页面未知、卡死、截图/窗口异常时，先尝试一键修复（最多 3 次），失败后再执行重启任务。',
+            env_card,
+        )
+        prefer_repair_tip.setWordWrap(True)
+        prefer_repair_tip.setStyleSheet('color: #d97706;')
+        env_form.addRow(self._field_label('', env_card), prefer_repair_tip)
+
         self.window_launch_wait_timeout = DoubleSpinBox(env_card)
         self.window_launch_wait_timeout.setRange(1.0, 300.0)
         self.window_launch_wait_timeout.setDecimals(1)
@@ -468,6 +478,7 @@ class SettingsPanel(QWidget):
             self.shortcut_launch_delay.valueChanged,
             self.window_restart_delay.valueChanged,
             self.window_repair_delay.valueChanged,
+            self.prefer_repair_before_restart.toggled,
             self.window_select.currentIndexChanged,
             self.window_screen.currentIndexChanged,
             self.window_position.currentIndexChanged,
@@ -783,6 +794,7 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
         self.shortcut_launch_delay.setValue(int(c.window_shortcut_launch_delay_seconds))
         self.window_restart_delay.setValue(int(c.window_restart_delay_seconds))
         self.window_repair_delay.setValue(int(c.window_repair_delay_seconds))
+        self.prefer_repair_before_restart.setChecked(bool(c.recovery.prefer_repair_before_restart))
         self.keyword.setText(str(c.window_title_keyword or ''))
         self._refresh_displays()
         self._refresh_virtual_desktops()
@@ -830,6 +842,7 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
         c.window_shortcut_launch_delay_seconds = int(self.shortcut_launch_delay.value())
         c.window_restart_delay_seconds = int(self.window_restart_delay.value())
         c.window_repair_delay_seconds = int(self.window_repair_delay.value())
+        c.recovery.prefer_repair_before_restart = bool(self.prefer_repair_before_restart.isChecked())
         c.window_title_keyword = str(self.keyword.text() or '').strip()
         c.window_select_rule = str(self.window_select.currentData() or 'auto')
         c.planting.window_screen_index = int(self.window_screen.currentData() or 0)

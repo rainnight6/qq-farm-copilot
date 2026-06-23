@@ -396,6 +396,7 @@ class RecoveryConfig(ConfigModel):
     window_launch_wait_timeout_seconds: float = 15.0
     startup_retry_step_sleep_seconds: float = 0.5
     startup_stabilize_timeout_seconds: float = 90.0
+    prefer_repair_before_restart: bool = False
 
     @field_validator('task_restart_attempts', mode='before')
     @classmethod

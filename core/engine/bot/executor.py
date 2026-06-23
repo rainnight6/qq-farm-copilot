@@ -146,12 +146,18 @@ class BotExecutorMixin:
     def _reset_recovery_metrics(self) -> None:
         """重置恢复指标。"""
         self._recovery_total_count = 0
+        self._exception_count = 0
+        self._repair_count = 0
+        self._restart_count = 0
         self._recovery_last_error = '--'
         self._recovery_last_action = '--'
         self._recovery_last_outcome = '--'
         self._recovery_last_task = '--'
         self.scheduler.update_runtime_metrics(
             recovery_total=0,
+            exception_count=0,
+            repair_count=0,
+            restart_count=0,
             recovery_last_error='--',
             recovery_last_action='--',
             recovery_last_outcome='--',
@@ -388,8 +394,19 @@ class BotExecutorMixin:
         except Exception as save_exc:
             logger.debug(f'save error screenshots failed: {save_exc}')
 
+    def _compute_failure_interval(self, task_name: str) -> int:
+        """按任务配置计算失败后的重试间隔秒数。"""
+        min_interval = int(self.config.executor.min_task_interval_seconds)
+        default_failure = max(min_interval, int(self.config.executor.default_failure_interval))
+        cfg = self._get_task_cfg(task_name)
+        if cfg is None:
+            return default_failure
+        return max(min_interval, int(cfg.failure_interval_seconds))
+
     def _handle_task_exception(self, *, task_name: str, exc: Exception, tb_text: str) -> TaskResult:
         """任务异常单入口（NIKKE 风格）：直接在一处完成分流与恢复动作。"""
+        self._exception_count += 1
+        self.scheduler.increment_recovery_counters(exception=1)
         self._save_task_exception_snapshot(task_name=task_name, tb_text=tb_text)
         display_name = self._task_display_name(task_name)
         err_type = type(exc).__name__
@@ -435,12 +452,7 @@ class BotExecutorMixin:
                     outcome='continue',
                 )
                 # 修复成功后按失败间隔让原任务稍后重试，避免跳过本轮应执行内容。
-                min_interval = int(self.config.executor.min_task_interval_seconds)
-                default_failure = max(min_interval, int(self.config.executor.default_failure_interval))
-                cfg = self._get_task_cfg(task_name)
-                failure_interval = (
-                    max(min_interval, int(cfg.failure_interval_seconds)) if cfg is not None else default_failure
-                )
+                failure_interval = self._compute_failure_interval(task_name)
                 logger.warning(f'[{display_name}] 重复登录已尝试一键修复，按失败间隔 {failure_interval}s 后重试原任务')
                 return TaskResult(success=False, next_run_seconds=failure_interval)
 
@@ -453,6 +465,47 @@ class BotExecutorMixin:
             )
             self._request_manual_takeover(reason=reason)
             return TaskResult(success=False, error=reason)
+
+        if self._is_restart_exception(exc) and self.config.recovery.prefer_repair_before_restart:
+            repair_limit = 3
+            current_repair_attempt = int(self._task_repair_retry_counts.get(task_name, 0))
+            if current_repair_attempt >= repair_limit:
+                self._task_repair_retry_counts.pop(task_name, None)
+                logger.warning(f'[{display_name}] 一键修复已达{repair_limit}次，fall back到重启任务')
+            else:
+                current_repair_attempt += 1
+                self._task_repair_retry_counts[task_name] = current_repair_attempt
+                self._repair_count += 1
+                self.scheduler.increment_recovery_counters(repair=1)
+                logger.warning(
+                    f'[{display_name}] 优先修复 {current_repair_attempt}/{repair_limit}: {err_type}，准备执行一键修复'
+                )
+                try:
+                    ctx = TaskContext(task_name='repair', started_at=datetime.now())
+                    repair_result = self._run_task_repair(ctx)
+                    if repair_result.success:
+                        self._task_repair_retry_counts.pop(task_name, None)
+                        self._record_recovery_event(
+                            task_name=task_name,
+                            error_key=error_key,
+                            action='repair_before_restart',
+                            outcome='continue',
+                        )
+                        failure_interval = self._compute_failure_interval(task_name)
+                        logger.warning(f'[{display_name}] 一键修复成功，按失败间隔 {failure_interval}s 后重试原任务')
+                        return TaskResult(success=False, next_run_seconds=failure_interval)
+                except Exception as repair_exc:
+                    logger.exception(f'[{display_name}] 一键修复执行异常: {repair_exc}')
+
+                self._record_recovery_event(
+                    task_name=task_name,
+                    error_key=error_key,
+                    action='repair_before_restart',
+                    outcome='retry',
+                )
+                failure_interval = self._compute_failure_interval(task_name)
+                logger.warning(f'[{display_name}] 一键修复未成功，按失败间隔 {failure_interval}s 后重试原任务')
+                return TaskResult(success=False, next_run_seconds=failure_interval)
 
         if self._is_restart_exception(exc):
             restart_limit, retry_delay = self._task_recovery_policy()
@@ -546,7 +599,10 @@ class BotExecutorMixin:
 
         def _wrapped(ctx: TaskContext) -> TaskResult:
             try:
-                return runner(ctx)
+                result = runner(ctx)
+                if result.success:
+                    self._task_repair_retry_counts.pop(task_name, None)
+                return result
             except Exception as exc:
                 logger.exception(f'task `{task_name}` crashed: {exc}')
                 return self._handle_task_exception(
@@ -1032,6 +1088,8 @@ class BotExecutorMixin:
             return False
 
         logger.warning(f'[{source}] 重复登录：尝试执行一键修复任务')
+        self._repair_count += 1
+        self.scheduler.increment_recovery_counters(repair=1)
         try:
             ctx = TaskContext(task_name='repair', started_at=datetime.now())
             result = self._run_task_repair(ctx)
@@ -1161,7 +1219,10 @@ class BotExecutorMixin:
             if item is not None:
                 item.enabled = prev_enabled
                 item.order_index = max(1, prev_order_index)
-        return queued
+            return False
+        self._restart_count += 1
+        self.scheduler.increment_recovery_counters(restart=1)
+        return True
 
     def _on_executor_snapshot(self, snapshot: TaskSnapshot):
         """接收执行器快照并更新 GUI 统计面板。"""
