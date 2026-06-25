@@ -173,8 +173,8 @@ class TaskBase:
 
             return True
 
-    def _reset_wechat_zoom_before_align(self) -> None:
-        """微信平台：回正前滚轮缩放到最小，再逐步放大直到识别到背景树。"""
+    def _reset_wechat_zoom_before_align(self, max_attempts: int = 5) -> None:
+        """微信平台：回正前滚轮缩放到最小，再逐步放大直到识别到背景树，支持重试。"""
         from core.ui.assets import BTN_BACKGROUND_TREE
 
         logger.info('微信平台: 滚轮重置界面缩放并等待背景树出现')
@@ -185,26 +185,36 @@ class TaskBase:
         center_x = int(rect[0] + rect[2] / 2)
         center_y = int(rect[1] + rect[3] / 2)
 
-        for _ in range(WECHAT_ZOOM_RESET_DOWN_STEPS):
-            self.ui.device.mouse_wheel(-240, center_x, center_y, desc='wechat_zoom_reset_down')
-            self.ui.device.sleep(WECHAT_ZOOM_RESET_STEP_DELAY)
+        for attempt in range(1, int(max_attempts) + 1):
+            logger.info('微信平台: 滚轮重置尝试 {} / {}', attempt, int(max_attempts))
 
-        for step in range(1, WECHAT_ZOOM_RESET_MAX_UP_STEPS + 1):
-            self.ui.device.mouse_wheel(120, center_x, center_y, desc='wechat_zoom_reset_up')
-            self.ui.device.sleep(WECHAT_ZOOM_RESET_STEP_DELAY)
-            self.ui.device.screenshot()
-            anchor = self.ui.appear_location(BTN_BACKGROUND_TREE, offset=30, threshold=0.8, static=False)
-            if anchor is not None:
-                logger.info(
-                    '微信平台: 背景树已出现，停止放大 | 上滚步数={} 中心=({},{})',
-                    step,
-                    center_x,
-                    center_y,
-                )
-                return
+            for _ in range(WECHAT_ZOOM_RESET_DOWN_STEPS):
+                self.ui.device.mouse_wheel(-240, center_x, center_y, desc='wechat_zoom_reset_down')
+                self.ui.device.sleep(WECHAT_ZOOM_RESET_STEP_DELAY)
+
+            for step in range(1, WECHAT_ZOOM_RESET_MAX_UP_STEPS + 1):
+                self.ui.device.mouse_wheel(120, center_x, center_y, desc='wechat_zoom_reset_up')
+                self.ui.device.sleep(WECHAT_ZOOM_RESET_STEP_DELAY)
+                self.ui.device.screenshot()
+                anchor = self.ui.appear_location(BTN_BACKGROUND_TREE, offset=30, threshold=0.8, static=False)
+                if anchor is not None:
+                    logger.info(
+                        '微信平台: 背景树已出现，停止放大 | 尝试={} 上滚步数={} 中心=({},{})',
+                        attempt,
+                        step,
+                        center_x,
+                        center_y,
+                    )
+                    return
+
+            logger.warning(
+                '微信平台: 第 {} 次尝试放大到最大步数仍未识别背景树，将重试',
+                attempt,
+            )
 
         logger.warning(
-            '微信平台: 放大到最大步数仍未识别背景树 | max_up={} 中心=({},{})',
+            '微信平台: {} 次尝试后仍未识别背景树 | max_up={} 中心=({},{})',
+            int(max_attempts),
             WECHAT_ZOOM_RESET_MAX_UP_STEPS,
             center_x,
             center_y,
