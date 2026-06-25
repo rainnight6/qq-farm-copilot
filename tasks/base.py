@@ -42,6 +42,10 @@ DEFAULT_ALIGN_SWIPE_V_P2 = (200, 220)
 DEFAULT_ALIGN_SWIPE_SPEED = 30
 DEFAULT_ALIGN_SWIPE_DELAY = 0.2
 DEFAULT_ALIGN_SWIPE_HOLD = 0.1
+# 微信平台回正前滚轮重置缩放参数：先向下滚到最小，再逐步向上放大，直到识别出背景树。
+WECHAT_ZOOM_RESET_DOWN_STEPS = 5
+WECHAT_ZOOM_RESET_MAX_UP_STEPS = 20
+WECHAT_ZOOM_RESET_STEP_DELAY = 0.05
 
 
 @dataclass(slots=True)
@@ -168,6 +172,43 @@ class TaskBase:
                 continue
 
             return True
+
+    def _reset_wechat_zoom_before_align(self) -> None:
+        """微信平台：回正前滚轮缩放到最小，再逐步放大直到识别到背景树。"""
+        from core.ui.assets import BTN_BACKGROUND_TREE
+
+        logger.info('微信平台: 滚轮重置界面缩放并等待背景树出现')
+        rect = self.ui.device.rect
+        if rect is None:
+            logger.warning('微信平台: 未获取到窗口区域，跳过滚轮重置')
+            return
+        center_x = int(rect[0] + rect[2] / 2)
+        center_y = int(rect[1] + rect[3] / 2)
+
+        for _ in range(WECHAT_ZOOM_RESET_DOWN_STEPS):
+            self.ui.device.mouse_wheel(-240, center_x, center_y, desc='wechat_zoom_reset_down')
+            self.ui.device.sleep(WECHAT_ZOOM_RESET_STEP_DELAY)
+
+        for step in range(1, WECHAT_ZOOM_RESET_MAX_UP_STEPS + 1):
+            self.ui.device.mouse_wheel(120, center_x, center_y, desc='wechat_zoom_reset_up')
+            self.ui.device.sleep(WECHAT_ZOOM_RESET_STEP_DELAY)
+            self.ui.device.screenshot()
+            anchor = self.ui.appear_location(BTN_BACKGROUND_TREE, offset=30, threshold=0.8, static=False)
+            if anchor is not None:
+                logger.info(
+                    '微信平台: 背景树已出现，停止放大 | 上滚步数={} 中心=({},{})',
+                    step,
+                    center_x,
+                    center_y,
+                )
+                return
+
+        logger.warning(
+            '微信平台: 放大到最大步数仍未识别背景树 | max_up={} 中心=({},{})',
+            WECHAT_ZOOM_RESET_MAX_UP_STEPS,
+            center_x,
+            center_y,
+        )
 
     def is_task_enabled(self, task_name: str) -> bool:
         """按任务名读取调度启用状态。"""

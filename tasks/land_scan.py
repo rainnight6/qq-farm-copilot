@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from loguru import logger
 
@@ -95,6 +95,12 @@ LAND_SCAN_ANCHOR_STABLE_REQUIRED_HITS = 3
 LAND_SCAN_ANCHOR_STABLE_TIMEOUT_SECONDS = 5.0
 # 连续两次横向滑动之间的停顿（秒），等待画面惯性消散。
 LAND_SCAN_SWIPE_STEP_DELAY = 0.2
+# 点击地块后等待地块弹窗的最长超时（秒），超时则跳过当前地块。
+LAND_SCAN_POPUP_WAIT_TIMEOUT_SECONDS = 3.0
+# 右半阶段 BTN_EXPAND_BRAND 固定识别 ROI（x0-300, y420-700）。
+LAND_SCAN_EXPAND_BRAND_RIGHT_ROI = (0, 420, 300, 700)
+# 左半阶段 BTN_EXPAND_BRAND 固定识别 ROI（x240-540, y460-700）。
+LAND_SCAN_EXPAND_BRAND_LEFT_ROI = (240, 460, 540, 700)
 
 
 class TaskLandScan(TaskMainActionsMixin, TaskBase):
@@ -122,6 +128,8 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         _ = rect
         logger.info('地块巡查: 开始')
         self.ui.ui_ensure(page_main)
+        if str(self.config.planting.window_platform.value).lower() == 'wechat':
+            self._reset_wechat_zoom_before_align()
         aligned = False
         for attempt in range(3):
             aligned = self.align_view_by_background_tree(log_prefix='地块巡查')
@@ -147,6 +155,11 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         )
         full_left_anchor = self.ui.appear_location(
             BTN_LAND_LEFT, offset=(-160, -30, 30, 30), threshold=0.9, static=False
+        )
+        logger.info(
+            '地块巡查: 初始锚点识别 | 右锚点={} 左锚点={}',
+            full_right_anchor,
+            full_left_anchor,
         )
         anchor_span: tuple[int, int] | None = None
         if full_right_anchor is not None and full_left_anchor is not None:
@@ -182,7 +195,10 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
             if not cells_after_left:
                 logger.warning('地块巡查: 未识别到地块网格，跳过任务')
                 return self.fail('未识别到地块网格')
-            cells_after_left = self._exclude_expand_brand_related_cells(cells_after_left)
+            cells_after_left, expand_target_key = self._exclude_expand_brand_related_cells(
+                cells_after_left,
+                brand_roi=LAND_SCAN_EXPAND_BRAND_RIGHT_ROI,
+            )
             self._scan_cells_by_physical_columns(
                 cells_after_left,
                 from_side='right',
@@ -220,7 +236,10 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
             if not cells_after_right:
                 logger.warning('地块巡查: 未识别到地块网格，跳过任务')
                 return self.fail('未识别到地块网格')
-            cells_after_right = self._exclude_expand_brand_related_cells(cells_after_right)
+            cells_after_right, _ = self._exclude_expand_brand_related_cells(
+                cells_after_right,
+                brand_roi=LAND_SCAN_EXPAND_BRAND_LEFT_ROI,
+            )
             # 左侧 4 列按物理列 9,8,7,6（从左往右）扫描
             left_scan_cols = list(range(LAND_SCAN_PHYSICAL_COLS, LAND_SCAN_RIGHT_STAGE_COL_COUNT, -1))
             self._scan_cells_by_physical_columns(
@@ -317,6 +336,7 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
             current_anchor: tuple[int, int] | None = None
             if location is not None:
                 current_anchor = (int(location[0]), int(location[1]))
+                logger.debug('地块巡查: 锚点识别 | 锚点={} 位置={}', anchor_button.name, current_anchor)
 
             if current_anchor is None:
                 opposite = self.ui.appear_location(opposite_button, offset=opposite_offset, threshold=0.9, static=False)
@@ -471,7 +491,8 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
             self.ui.device.sleep(0.3)
 
             suffix_location: tuple[int, int] | None = None
-            while 1:
+            popup_wait_timeout = Timer(LAND_SCAN_POPUP_WAIT_TIMEOUT_SECONDS, count=0).start()
+            while not popup_wait_timeout.reached():
                 self.ui.device.screenshot()
                 removal_location = self.ui.appear_location(BTN_CROP_REMOVAL, offset=30, static=False)
                 # 正常弹窗
@@ -533,6 +554,13 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
                         )
                     return
                 self.ui.device.sleep(0.2)
+            else:
+                logger.warning(
+                    '地块巡查: 等待地块弹窗超时，跳过当前地块 | 序号={} 中心={}',
+                    cell.label,
+                    cell.center,
+                )
+                return
 
             removal_location = suffix_location
             logger.debug(
@@ -709,21 +737,70 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         mean_bgr = patch.reshape(-1, 3).mean(axis=0)
         return int(mean_bgr[0]), int(mean_bgr[1]), int(mean_bgr[2])
 
-    def _exclude_expand_brand_related_cells(self, cells: list[LandCell]) -> list[LandCell]:
-        """按 BTN_EXPAND_BRAND 位置排除不可统计地块。"""
-        brand_location = self.ui.appear_location(BTN_EXPAND_BRAND, offset=30, static=False)
-        if brand_location is None:
-            return cells
-        target_cell = self._pick_nearest_cell(cells, brand_location)
-        if target_cell is None:
-            return cells
+    def _exclude_expand_brand_related_cells(
+        self,
+        cells: list[LandCell],
+        target_key: tuple[int, int] | None = None,
+        brand_roi: tuple[int, int, int, int] | None = None,
+    ) -> tuple[list[LandCell], tuple[int, int] | None]:
+        """按 BTN_EXPAND_BRAND 位置排除未扩建地块。
 
-        excluded_labels = self._build_expand_brand_excluded_labels(target_cell)
-        filtered = [cell for cell in cells if cell.label not in excluded_labels]
+        规则：只保留坐标小于 target_cell 的地块（列优先、行升序比较）。
+        例如 target=2-4 时，仅巡查 1-1/1-2/1-3/1-4/2-1/2-2/2-3。
+        若传入 target_key，则直接复用，不再重新检测 BTN_EXPAND_BRAND。
+        若传入 brand_roi，则在固定 ROI 内识别 BTN_EXPAND_BRAND。
+        """
+        if target_key is None:
+            brand_location = self._detect_expand_brand_location(brand_roi=brand_roi)
+            if brand_location is None:
+                return cells, None
+            target_cell = self._pick_nearest_cell(cells, brand_location)
+            if target_cell is None:
+                return cells, None
+            target_key = (int(target_cell.col), int(target_cell.row))
+
+        filtered = [cell for cell in cells if (int(cell.col), int(cell.row)) < target_key]
+        excluded_labels = sorted({cell.label for cell in cells if (int(cell.col), int(cell.row)) >= target_key})
         logger.info(
-            '地块巡查: 排除未扩建地块 | 排除序号={} 剩余={}/{}', sorted(excluded_labels), len(filtered), len(cells)
+            '地块巡查: 排除未扩建地块 | 参考坐标={}-{} 排除序号={} 剩余={}/{}',
+            target_key[0],
+            target_key[1],
+            excluded_labels,
+            len(filtered),
+            len(cells),
         )
-        return filtered
+        return filtered, target_key
+
+    def _detect_expand_brand_location(
+        self,
+        brand_roi: tuple[int, int, int, int] | None = None,
+    ) -> tuple[int, int] | None:
+        """识别 BTN_EXPAND_BRAND 中心位置；传入 brand_roi 时只在 ROI 内做 btn 识别。"""
+        if brand_roi is None:
+            return self.ui.appear_location(BTN_EXPAND_BRAND, offset=30, threshold=0.7, static=False)
+
+        rx1, ry1, rx2, ry2 = [int(v) for v in brand_roi]
+        previous_image = self.ui.device.image
+        if previous_image is None:
+            return None
+        sh, sw = previous_image.shape[:2]
+        rx1 = max(0, min(rx1, sw - 1))
+        ry1 = max(0, min(ry1, sh - 1))
+        rx2 = max(rx1 + 1, min(rx2, sw))
+        ry2 = max(ry1 + 1, min(ry2, sh))
+        if rx2 <= rx1 or ry2 <= ry1:
+            return None
+
+        cropped = previous_image[ry1:ry2, rx1:rx2]
+        try:
+            self.ui.device.set_image(cropped)
+            loc_in_crop = self.ui.appear_location(BTN_EXPAND_BRAND, offset=30, threshold=0.65, static=False)
+        finally:
+            self.ui.device.set_image(previous_image)
+
+        if loc_in_crop is None:
+            return None
+        return (int(loc_in_crop[0] + rx1), int(loc_in_crop[1] + ry1))
 
     @staticmethod
     def _pick_nearest_cell(cells: list[LandCell], point: tuple[int, int]) -> LandCell | None:
@@ -733,24 +810,6 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         px = int(point[0])
         py = int(point[1])
         return min(cells, key=lambda cell: (int(cell.center[0]) - px) ** 2 + (int(cell.center[1]) - py) ** 2)
-
-    @staticmethod
-    def _build_expand_brand_excluded_labels(cell: LandCell) -> set[str]:
-        """构造需排除的序号集合：当前及下方整列、左侧整列。"""
-        col = int(cell.col)
-        row = int(cell.row)
-        labels: set[str] = set()
-
-        # 当前列：从命中行到最下方全部排除（当前 + 下侧）。
-        for r in range(row, LAND_SCAN_ROWS + 1):
-            labels.add(f'{col}-{r}')
-
-        # 左侧列：整列排除（全行）。
-        left_col = col + 1
-        if left_col <= LAND_SCAN_COLS:
-            for r in range(1, LAND_SCAN_ROWS + 1):
-                labels.add(f'{left_col}-{r}')
-        return labels
 
     @staticmethod
     def _physical_col_rtl(cell: LandCell) -> int:
