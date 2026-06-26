@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 # 仓库优先模式下，检测候选种子周围锁定/数量不足标志的 ROI 与阈值。
 SEED_LOCKED_ROI_SIZE = 25
-SEED_LOCKED_THRESHOLD = 0.75
+SEED_LOCKED_THRESHOLD = 0.91
 
 
 class TaskMainPlantingMixin(TaskMainBuySeedMixin):
@@ -390,7 +390,6 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
         logger.info('自动播种: 空地识别完成 | 数量={}', len(land_coords))
         return land_coords, pending_plot_refs, detail_targets
 
-    @staticmethod
     def _resolve_planted_plot_refs_by_live_coords(
         self,
         initial_targets: list[tuple[str, tuple[int, int]]],

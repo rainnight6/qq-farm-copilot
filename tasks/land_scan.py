@@ -147,7 +147,7 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
             logger.warning('地块巡查: 左滑次数为 0，将只扫描右半部分地块')
         # self.ui.device.click_button(GOTO_MAIN)
 
-        # 在回正状态下同时识别左右锚点，用真实间距推断侧滑后的对侧锚点。
+        # 在回正状态下同时识别左右锚点并记录日志，侧滑后统一使用固定基线 span 推断对侧锚点。
         self.ui.device.sleep(0.2)
         self.ui.device.screenshot()
         full_right_anchor = self.ui.appear_location(
@@ -206,10 +206,6 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
                 scan_direction='rtl',
             )
 
-            # 右半阶段可能产生边缘修正滑动，先回正再进入左半阶段，避免左滑起点偏移
-            self.align_view_by_background_tree(log_prefix='地块巡查-阶段回正')
-            self.ui.device.sleep(0.2)
-
             # 左滑：手指从 P2 滑向 P1，画面向左侧移动，露出左侧地块
             logger.info('地块巡查: 开始左滑')
             for i in range(left_swipe_times):
@@ -238,6 +234,7 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
                 return self.fail('未识别到地块网格')
             cells_after_right, _ = self._exclude_expand_brand_related_cells(
                 cells_after_right,
+                target_key=expand_target_key,
                 brand_roi=LAND_SCAN_EXPAND_BRAND_LEFT_ROI,
             )
             # 左侧 4 列按物理列 9,8,7,6（从左往右）扫描
