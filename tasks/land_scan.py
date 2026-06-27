@@ -247,12 +247,13 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
                 scan_direction='ltr',
             )
         finally:
+            if str(self.config.planting.window_platform.value).lower() == 'wechat':
+                self._reset_wechat_zoom_before_align()
             self.align_view_by_background_tree(log_prefix='地块巡查')
             self.ui.ui_ensure(page_main)
 
         self._schedule_timed_harvest_after_scan()
         self._trigger_main_task_if_needed()
-        self.align_view_by_background_tree(log_prefix='地块巡查-结束回正')
         logger.info('地块巡查: 结束')
         return self.ok()
 

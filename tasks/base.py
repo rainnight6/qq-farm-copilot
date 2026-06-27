@@ -134,7 +134,7 @@ class TaskBase:
 
         while 1:
             self.ui.device.screenshot()
-            anchor = self.ui.appear_location(BTN_BACKGROUND_TREE, offset=30, threshold=0.79, static=False)
+            anchor = self.ui.appear_location(BTN_BACKGROUND_TREE, offset=30, threshold=0.78, static=False)
             if anchor is None:
                 logger.warning('{}: 未识别到背景树锚点', log_prefix)
                 return False

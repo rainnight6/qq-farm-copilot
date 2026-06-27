@@ -14,6 +14,8 @@ from core.ui.assets import (
     BTN_MALL_FREE_DONE,
     BTN_MONTHLY_CARD,
     BTN_MONTHLY_CARD_ACCEPT,
+    BTN_MONTHLY_CARD_END,
+    BTN_MONTHLY_CARD_END_2,
     BTN_ONECLICK_OPEN,
     BTN_QQSVIP,
 )
@@ -113,20 +115,35 @@ class TaskGift(TaskBase):
                 break
             if self.ui.appear_then_click(BTN_MALL_FREE, offset=30, threshold=0.65, interval=1):
                 continue
+        # 领取弹窗/动画可能仍有延迟，等待稳定后再进入月卡处理
+        self.ui.device.sleep(0.5)
         logger.info('领取流程: 商城领取流程结束')
 
-    def _handle_monthly_card(self):
-        """商城月卡按钮处理：返回主页面前若检测到月卡入口，则点击并尝试领取确认。"""
-        self.ui.device.screenshot()
-        if not self.ui.appear(BTN_MONTHLY_CARD, threshold=0.8, offset=30):
-            return
-        logger.info('领取流程: 检测到月卡按钮，点击')
-        self.ui.device.click_button(BTN_MONTHLY_CARD)
-        self.ui.device.sleep(1.05)
-        self.ui.device.screenshot()
-        if self.ui.appear(BTN_MONTHLY_CARD_ACCEPT, threshold=0.8, offset=30):
-            logger.info('领取流程: 检测到月卡领取确认按钮，点击')
-            self.ui.device.click_button(BTN_MONTHLY_CARD_ACCEPT)
+    def _handle_monthly_card(self) -> None:
+        """商城月卡按钮处理：循环点击并等待领取确认或结束状态。"""
+        deadline = time.monotonic() + 8.0
+        last_action = ''
+        while time.monotonic() < deadline:
+            self.ui.device.screenshot()
+            if self.ui.handle_click_close():
+                continue
+            if self.ui.appear(BTN_MONTHLY_CARD_END, threshold=0.8, offset=30) or self.ui.appear(
+                BTN_MONTHLY_CARD_END_2, threshold=0.8, offset=30
+            ):
+                logger.info('领取流程: 检测到月卡结束状态（未开通/已领取）')
+                return
+            if self.ui.appear(BTN_MONTHLY_CARD_ACCEPT, threshold=0.8, offset=30):
+                if last_action != 'accept':
+                    logger.info('领取流程: 检测到月卡领取确认按钮，点击')
+                    self.ui.device.click_button(BTN_MONTHLY_CARD_ACCEPT)
+                    last_action = 'accept'
+                continue
+            if self.ui.appear_then_click(BTN_MONTHLY_CARD, threshold=0.8, offset=30, interval=1):
+                logger.info('领取流程: 检测到月卡按钮，点击')
+                continue
+            self.ui.device.sleep(0.3)
+
+        logger.warning('领取流程: 等待月卡结束状态超时')
 
     def _run_mail_gift(self):
         """邮件领取"""

@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING
 
+import cv2
 import numpy as np
 from loguru import logger
 
@@ -85,6 +86,7 @@ class TaskGrass(TaskBase):
 
         processed_count = 0
         consecutive_fail_count = 0
+        consecutive_end_count = 0
         while 1:
             self.ui.device.screenshot()
             if not self.ui.appear(BTN_HOME, offset=30):
@@ -135,13 +137,28 @@ class TaskGrass(TaskBase):
 
             kind, grass_point, score = detection
             if kind == 'end':
-                logger.info('自动种草: 当前好友种草次数已用完，结束任务')
                 consecutive_fail_count = 0
+                consecutive_end_count += 1
+                if consecutive_end_count >= 2:
+                    logger.info(
+                        '自动种草: 连续{}次识别到结束图标，确认种草次数已用完，结束任务',
+                        consecutive_end_count,
+                    )
+                    self._close_grass_popup()
+                    break
+                logger.info(
+                    '自动种草: 第{}次识别到结束图标，继续切换下一位好友确认',
+                    consecutive_end_count,
+                )
                 self._close_grass_popup()
-                break
+                if not self._goto_next_friend():
+                    logger.info('自动种草: 切换下一位好友失败，结束')
+                    break
+                continue
 
             # kind == 'grass'
             consecutive_fail_count = 0
+            consecutive_end_count = 0
             logger.info('自动种草: 识别到草图标 | score={:.3f}', score)
 
             # 6. 按配置概率决定是否跳过当前好友（0 不跳过，1 全部跳过无意义）
@@ -373,36 +390,42 @@ class TaskGrass(TaskBase):
             )
             return None
 
-        # 两图标形状相同、仅颜色不同，模板匹配可能互相串高相似度，
-        # 因此以命中区域平均颜色更接近哪种参考色作为仲裁依据。
-        region_button = BTN_GRASS if grass_ok else BTN_GRASS_END
-        kind = self._classify_grass_region(region_button)
+        # 两图标形状相同、仅颜色不同，模板匹配可能互相串高相似度。
+        # 分别对两个命中区域做颜色分类，然后优先选择“模板类型与颜色分类一致”的候选，
+        # 若都不一致，则选择颜色分类置信度更高的那个。
+        candidates: list[tuple[str, str, tuple[int, int], float, float]] = []
+        if grass_ok:
+            kind, confidence = self._classify_grass_region(BTN_GRASS)
+            candidates.append(('grass', kind, grass_loc, grass_score, confidence))
+        if end_ok:
+            kind, confidence = self._classify_grass_region(BTN_GRASS_END)
+            candidates.append(('end', kind, end_loc, end_score, confidence))
 
-        if kind == 'grass':
-            loc = grass_loc if grass_ok else end_loc
-            score = grass_score if grass_ok else end_score
-            logger.debug(
-                '自动种草: 颜色仲裁为草图标 | 草相似度={:.3f}, 结束相似度={:.3f}',
-                grass_score,
-                end_score,
-            )
-            return ('grass', loc, score)
+        consistent = [
+            (expected, kind, loc, score, conf) for expected, kind, loc, score, conf in candidates if expected == kind
+        ]
+        if consistent:
+            _, kind, loc, score, _ = max(consistent, key=lambda item: item[3])
+        else:
+            _, kind, loc, score, _ = max(candidates, key=lambda item: item[4])
 
-        loc = end_loc if end_ok else grass_loc
-        score = end_score if end_ok else grass_score
         logger.debug(
-            '自动种草: 颜色仲裁为结束图标 | 草相似度={:.3f}, 结束相似度={:.3f}',
+            '自动种草: 颜色仲裁为{} | 草相似度={:.3f}, 结束相似度={:.3f}',
+            '草图标' if kind == 'grass' else '结束图标',
             grass_score,
             end_score,
         )
-        return ('end', loc, score)
+        return (kind, loc, score)
 
-    def _classify_grass_region(self, button) -> str:
-        """根据按钮匹配区域的平均颜色判断是草图标还是结束图标。"""
+    def _classify_grass_region(self, button) -> tuple[str, float]:
+        """根据按钮匹配区域的平均颜色判断是草图标还是结束图标。
+
+        返回 (kind, confidence)，confidence 越大表示分类越确定。
+        """
         image = self.ui.device.image
         offset = getattr(button, '_button_offset', None)
         if image is None or offset is None:
-            return 'end'
+            return 'end', 0.0
 
         x1, y1, x2, y2 = offset
         h, w = image.shape[:2]
@@ -412,13 +435,26 @@ class TaskGrass(TaskBase):
         y2 = max(y1 + 1, min(int(y2), h))
         region = image[y1:y2, x1:x2]
         if region.size == 0:
-            return 'end'
+            return 'end', 0.0
 
-        mean_bgr = region.mean(axis=(0, 1)).astype(np.float32)
+        tmpl = getattr(button, 'image', None)
+        if tmpl is not None and tmpl.shape[:2] == region.shape[:2]:
+            gray = cv2.cvtColor(tmpl, cv2.COLOR_BGR2GRAY)
+            mask = (gray > 0).astype(np.float32)
+            mask_sum = float(mask.sum())
+            if mask_sum > 0:
+                mean_bgr = (region.astype(np.float32) * mask[:, :, None]).sum(axis=(0, 1)) / mask_sum
+            else:
+                mean_bgr = region.mean(axis=(0, 1)).astype(np.float32)
+        else:
+            mean_bgr = region.mean(axis=(0, 1)).astype(np.float32)
+
         dist_grass = float(np.linalg.norm(mean_bgr - GRASS_COLOR_REF_BGR))
         dist_end = float(np.linalg.norm(mean_bgr - GRASS_END_COLOR_REF_BGR))
-
-        return 'grass' if dist_grass < dist_end else 'end'
+        kind = 'grass' if dist_grass < dist_end else 'end'
+        # confidence: 距离差越大越确定
+        confidence = abs(dist_end - dist_grass)
+        return kind, confidence
 
     def _drag_grass_to_lands(
         self,
