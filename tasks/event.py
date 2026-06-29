@@ -24,10 +24,10 @@ DEFAULT_RESOURCES = [
     'btn_hefeng_101',
     #'btn_hefeng_102:threshold=0.95',
     'btn_hefeng_103:4.0',
-    'EVENT_TOP_TAP',
+    'EVENT_TOP_TAP_1',
     'btn_hefeng_104_s:1.2',
     'btn_hefeng_105_s:4.0',
-    'EVENT_TOP_TAP',
+    'EVENT_TOP_TAP_2',
     'btn_hefeng_106',
     'btn_hefeng_107:2',
     'btn_hefeng_108',
@@ -62,12 +62,19 @@ class TaskEvent(TaskBase):
             logger.warning('活动: 没有可执行资源')
             return self.ok()
 
-        for name, button, delay, top_click, threshold in buttons:
+        last_successful_index: int | None = None
+        retried_indices: set[int] = set()
+
+        i = 0
+        while i < len(buttons):
+            name, button, delay, top_click, threshold = buttons[i]
             self.ui.device.screenshot()
-            if name == 'EVENT_TOP_TAP':
+            if name.startswith('EVENT_TOP_TAP'):
                 logger.info('活动: 点击顶部区域 | name={} delay={}s', name, delay)
                 self._click_top_area()
                 self.ui.device.sleep(delay)
+                last_successful_index = i
+                i += 1
                 continue
             if self.ui.appear_then_click(button, offset=30, interval=1, threshold=threshold):
                 logger.info(
@@ -79,8 +86,21 @@ class TaskEvent(TaskBase):
                     self.ui.device.sleep(CLICK_ANIMATION_DELAY)
                 else:
                     self.ui.device.sleep(delay)
+                last_successful_index = i
+                i += 1
             else:
-                logger.debug('活动: 资源未出现 | name={}', name)
+                if last_successful_index is not None and i not in retried_indices:
+                    last_name = buttons[last_successful_index][0]
+                    logger.warning(
+                        '活动: 资源未出现，回退重试上一步 | current={} last={}',
+                        name,
+                        last_name,
+                    )
+                    retried_indices.add(i)
+                    i = last_successful_index
+                else:
+                    logger.debug('活动: 资源未出现 | name={}', name)
+                    i += 1
 
         logger.info('活动: 结束')
         return self.ok()
@@ -181,7 +201,7 @@ class TaskEvent(TaskBase):
             name, delay, top_click, threshold = self._parse_resource_entry(str(entry or '').strip())
             if not name:
                 continue
-            if name == 'EVENT_TOP_TAP':
+            if name.startswith('EVENT_TOP_TAP'):
                 out.append((name, None, delay, False, threshold))
                 continue
             if name.endswith('_s') and not use_coupon:
