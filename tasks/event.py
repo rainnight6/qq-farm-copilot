@@ -20,14 +20,16 @@ if TYPE_CHECKING:
 DEFAULT_ACTIVITY_NAME = '荷风十里蝉初鸣'
 DEFAULT_DAILY_TIMES = ['00:01']
 DEFAULT_RESOURCES = [
-    'btn_hefeng_100',
+    'btn_hefeng_100:threshold=0.74',  # 兼容微信的字体
     'btn_hefeng_101',
-    'btn_hefeng_102:threshold=0.95',
-    'btn_hefeng_103:2.0:top',
-    'btn_hefeng_104_s',
-    'btn_hefeng_105_s:2.0:top',
+    #'btn_hefeng_102:threshold=0.95',
+    'btn_hefeng_103:4.0',
+    'EVENT_TOP_TAP',
+    'btn_hefeng_104_s:1.2',
+    'btn_hefeng_105_s:4.0',
+    'EVENT_TOP_TAP',
     'btn_hefeng_106',
-    'btn_hefeng_107:1.5',
+    'btn_hefeng_107:2',
     'btn_hefeng_108',
 ]
 DEFAULT_END_TIME = '2026-07-21 00:00:00'
@@ -62,14 +64,19 @@ class TaskEvent(TaskBase):
 
         for name, button, delay, top_click, threshold in buttons:
             self.ui.device.screenshot()
+            if name == 'EVENT_TOP_TAP':
+                logger.info('活动: 点击顶部区域 | name={} delay={}s', name, delay)
+                self._click_top_area()
+                self.ui.device.sleep(delay)
+                continue
             if self.ui.appear_then_click(button, offset=30, interval=1, threshold=threshold):
                 logger.info(
                     '活动: 点击资源 | name={} delay={}s top_click={} threshold={}', name, delay, top_click, threshold
                 )
                 if top_click:
-                    self.ui.device.sleep(CLICK_ANIMATION_DELAY)
-                    self._click_top_area()
                     self.ui.device.sleep(delay)
+                    self._click_top_area()
+                    self.ui.device.sleep(CLICK_ANIMATION_DELAY)
                 else:
                     self.ui.device.sleep(delay)
             else:
@@ -165,14 +172,17 @@ class TaskEvent(TaskBase):
 
     DEFAULT_THRESHOLD = 0.86
 
-    def _resolve_buttons(self, feature) -> list[tuple[str, Button, float, bool, float]]:
+    def _resolve_buttons(self, feature) -> list[tuple[str, Button | None, float, bool, float]]:
         """根据配置解析出需要点击的资源按钮列表、点击后延迟、是否点击顶部及置信度阈值。"""
         use_coupon = bool(feature.use_coupon)
         raw_resources = list(feature.resources) if isinstance(feature.resources, list) else []
-        out: list[tuple[str, Button, float, bool, float]] = []
-        for entry in sorted(raw_resources):
+        out: list[tuple[str, Button | None, float, bool, float]] = []
+        for entry in raw_resources:
             name, delay, top_click, threshold = self._parse_resource_entry(str(entry or '').strip())
             if not name:
+                continue
+            if name == 'EVENT_TOP_TAP':
+                out.append((name, None, delay, False, threshold))
                 continue
             if name.endswith('_s') and not use_coupon:
                 logger.debug('活动: 跳过点券资源 | name={}', name)

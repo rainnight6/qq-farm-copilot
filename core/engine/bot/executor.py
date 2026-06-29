@@ -289,6 +289,10 @@ class BotExecutorMixin:
             runners[task_name] = runner
         return runners
 
+    def _is_qq_platform(self) -> bool:
+        """当前配置是否为 QQ 平台。"""
+        return str(self.config.planting.window_platform.value) == 'qq'
+
     @classmethod
     def _is_restart_exception(cls, exc: Exception) -> bool:
         """判断异常是否应走重启任务恢复。"""
@@ -300,6 +304,8 @@ class BotExecutorMixin:
                 DeviceTooManyClickError,
                 WindowCaptureError,
                 WindowNotFoundError,
+                LoginRepeatError,
+                LoginRecoveryRequiredError,
             ),
         )
 
@@ -339,27 +345,40 @@ class BotExecutorMixin:
     def _handle_startup_exception(self, *, exc: Exception) -> tuple[bool, str]:
         """启动阶段异常单入口：返回 `(continue_loop, last_error)`。"""
         if isinstance(exc, LoginRepeatError):
-            if self._try_repair_for_login_repeat(source='startup'):
+            if self._is_qq_platform():
+                if self._try_repair_for_login_repeat(source='startup'):
+                    self._record_recovery_event(
+                        task_name='startup',
+                        error_key='login_repeat',
+                        action='repair_login_repeat',
+                        outcome='continue_startup',
+                    )
+                    repair_delay = self._resolve_window_repair_delay_seconds()
+                    logger.warning(
+                        f'启动阶段检测到重复登录，已尝试一键修复，等待 {repair_delay}s 页面恢复后继续启动流程'
+                    )
+                    if not self.device.sleep(float(repair_delay)):
+                        return False, 'cancelled'
+                    return True, 'login_repeat_repaired'
+
                 self._record_recovery_event(
                     task_name='startup',
                     error_key='login_repeat',
-                    action='repair_login_repeat',
-                    outcome='continue_startup',
+                    action='fail_startup',
+                    outcome='abort_startup',
                 )
-                repair_delay = self._resolve_window_repair_delay_seconds()
-                logger.warning(f'启动阶段检测到重复登录，已尝试一键修复，等待 {repair_delay}s 页面恢复后继续启动流程')
-                if not self.device.sleep(float(repair_delay)):
-                    return False, 'cancelled'
-                return True, 'login_repeat_repaired'
+                logger.error('检测到重复登录，一键修复失败，请先手动处理后再启动')
+                return False, 'login_repeat'
 
+            # 微信平台：不执行 QQ 一键修复，像其他启动异常一样继续重试
             self._record_recovery_event(
                 task_name='startup',
                 error_key='login_repeat',
-                action='fail_startup',
-                outcome='abort_startup',
+                action='wechat_login_repeat_startup_retry',
+                outcome='continue_startup',
             )
-            logger.error('检测到重复登录，一键修复失败，请先手动处理后再启动')
-            return False, 'login_repeat'
+            logger.warning('启动阶段检测到重复登录（微信平台），不执行一键修复，继续重试启动')
+            return True, 'wechat_login_repeat_retry'
 
         error_key = self._error_key_for_exception(exc)
         if isinstance(exc, LoginRecoveryRequiredError):
@@ -413,58 +432,82 @@ class BotExecutorMixin:
         error_key = self._error_key_for_exception(exc)
 
         if isinstance(exc, LoginRecoveryRequiredError):
-            recovered = False
-            try:
-                recovered = bool(self.recover_after_login_again(task_name=task_name))
-            except Exception as recover_exc:
-                logger.exception(f'[{display_name}] 登录恢复执行异常: {recover_exc}')
+            if self._is_qq_platform():
                 recovered = False
+                try:
+                    recovered = bool(self.recover_after_login_again(task_name=task_name))
+                except Exception as recover_exc:
+                    logger.exception(f'[{display_name}] 登录恢复执行异常: {recover_exc}')
+                    recovered = False
 
-            self._task_exception_retry_counts.pop(task_name, None)
-            if recovered:
-                delay_seconds = max(1, int(self._task_seconds_by_trigger(task_name)))
+                self._task_exception_retry_counts.pop(task_name, None)
+                if recovered:
+                    delay_seconds = max(1, int(self._task_seconds_by_trigger(task_name)))
+                    self._record_recovery_event(
+                        task_name=task_name,
+                        error_key=error_key,
+                        action='recover_login_flow',
+                        outcome='skip_task',
+                    )
+                    logger.warning(f'[{display_name}] 登录恢复成功，本轮任务结束，按调度间隔延后 {delay_seconds}s')
+                    return TaskResult(success=True, next_run_seconds=delay_seconds)
+
                 self._record_recovery_event(
                     task_name=task_name,
                     error_key=error_key,
                     action='recover_login_flow',
-                    outcome='skip_task',
+                    outcome='stop',
                 )
-                logger.warning(f'[{display_name}] 登录恢复成功，本轮任务结束，按调度间隔延后 {delay_seconds}s')
-                return TaskResult(success=True, next_run_seconds=delay_seconds)
+                reason = f'检测到重新登录异常({task_name})，登录恢复失败，已停止任务'
+                self._request_manual_takeover(reason=reason)
+                return TaskResult(success=False, error=reason)
 
+            # 微信平台：不执行 QQ 登录恢复，走统一重启恢复流程
+            self._task_exception_retry_counts.pop(task_name, None)
             self._record_recovery_event(
                 task_name=task_name,
                 error_key=error_key,
-                action='recover_login_flow',
-                outcome='stop',
+                action='wechat_login_recovery_fallback_to_restart',
+                outcome='continue',
             )
-            reason = f'检测到重新登录异常({task_name})，登录恢复失败，已停止任务'
-            self._request_manual_takeover(reason=reason)
-            return TaskResult(success=False, error=reason)
+            logger.warning(f'[{display_name}] 微信平台重新登录异常，不执行登录恢复，按统一重启流程处理')
 
         if isinstance(exc, LoginRepeatError):
-            self._task_exception_retry_counts.pop(task_name, None)
-            if self._try_repair_for_login_repeat(source=task_name):
+            if self._is_qq_platform():
+                self._task_exception_retry_counts.pop(task_name, None)
+                if self._try_repair_for_login_repeat(source=task_name):
+                    self._record_recovery_event(
+                        task_name=task_name,
+                        error_key=error_key,
+                        action='repair_login_repeat',
+                        outcome='continue',
+                    )
+                    # 修复成功后按失败间隔让原任务稍后重试，避免跳过本轮应执行内容。
+                    failure_interval = self._compute_failure_interval(task_name)
+                    logger.warning(
+                        f'[{display_name}] 重复登录已尝试一键修复，按失败间隔 {failure_interval}s 后重试原任务'
+                    )
+                    return TaskResult(success=False, next_run_seconds=failure_interval)
+
+                reason = f'检测到重复登录异常({task_name})，一键修复失败，需人工接管，已停止任务'
                 self._record_recovery_event(
                     task_name=task_name,
                     error_key=error_key,
                     action='repair_login_repeat',
-                    outcome='continue',
+                    outcome='stop',
                 )
-                # 修复成功后按失败间隔让原任务稍后重试，避免跳过本轮应执行内容。
-                failure_interval = self._compute_failure_interval(task_name)
-                logger.warning(f'[{display_name}] 重复登录已尝试一键修复，按失败间隔 {failure_interval}s 后重试原任务')
-                return TaskResult(success=False, next_run_seconds=failure_interval)
+                self._request_manual_takeover(reason=reason)
+                return TaskResult(success=False, error=reason)
 
-            reason = f'检测到重复登录异常({task_name})，一键修复失败，需人工接管，已停止任务'
+            # 微信平台：不执行 QQ 一键修复，走统一重启恢复流程
+            self._task_exception_retry_counts.pop(task_name, None)
             self._record_recovery_event(
                 task_name=task_name,
                 error_key=error_key,
-                action='repair_login_repeat',
-                outcome='stop',
+                action='wechat_login_repeat_fallback_to_restart',
+                outcome='continue',
             )
-            self._request_manual_takeover(reason=reason)
-            return TaskResult(success=False, error=reason)
+            logger.warning(f'[{display_name}] 微信平台重复登录异常，不执行一键修复，按统一重启流程处理')
 
         if self._is_restart_exception(exc) and self.config.recovery.prefer_repair_before_restart:
             repair_limit = 3
