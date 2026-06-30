@@ -95,6 +95,9 @@ class WindowManager:
         self._nonclient_json_path = resolve_config_file('nonclient_metrics.json', prefer_user=True)
         self._nonclient_config = self._load_nonclient_config()
         self._last_capture_rect_is_client: bool = False
+        self._window_hidden: bool = False
+        self._hidden_exstyle: int | None = None
+        self._virtual_desktop_error_logged: set[int] = set()
 
     @staticmethod
     def _enable_dpi_awareness() -> None:
@@ -789,6 +792,113 @@ class WindowManager:
             return None
         return int(self._cached_window.hwnd)
 
+    def get_cached_window(self) -> WindowInfo | None:
+        """返回当前缓存窗口信息（只读访问）。"""
+        return self._cached_window
+
+    def set_cached_window(self, window: WindowInfo) -> None:
+        """设置当前缓存窗口信息。"""
+        self._cached_window = window
+
+    def clear_cached_window(self) -> None:
+        """清除窗口缓存并重置隐藏状态标记。"""
+        self._cached_window = None
+        self._window_hidden = False
+
+    def hide_window(self) -> bool:
+        """将当前缓存的游戏窗口设置为全透明并移除任务栏图标，避免隐藏后无法截图。"""
+        if not self._cached_window:
+            return False
+        hwnd = int(self._cached_window.hwnd or 0)
+        if hwnd <= 0:
+            return False
+        try:
+            user32 = ctypes.windll.user32
+            GWL_EXSTYLE = -20
+            WS_EX_LAYERED = 0x00080000
+            WS_EX_TOOLWINDOW = 0x00000080
+            LWA_ALPHA = 0x2
+            SWP_NOMOVE = 0x0002
+            SWP_NOSIZE = 0x0001
+            SWP_NOZORDER = 0x0004
+            SWP_NOACTIVATE = 0x0010
+            SWP_FRAMECHANGED = 0x0020
+            SWP_SHOWWINDOW = 0x0040
+            exstyle = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            self._hidden_exstyle = int(exstyle)
+            new_exstyle = exstyle | WS_EX_LAYERED | WS_EX_TOOLWINDOW
+            user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new_exstyle)
+            user32.SetLayeredWindowAttributes(hwnd, 0, 0, LWA_ALPHA)
+            user32.SetWindowPos(
+                hwnd,
+                0,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW,
+            )
+            self._window_hidden = True
+            logger.info(f'窗口已透明隐藏: hwnd=0x{hwnd:X}')
+            return True
+        except Exception as exc:
+            logger.warning(f'隐藏窗口失败: hwnd=0x{hwnd:X}, {exc}')
+            return False
+
+    def show_window(self) -> bool:
+        """恢复当前缓存的游戏窗口的不透明度与任务栏图标；若在其他虚拟桌面则移回当前桌面。"""
+        if not self._cached_window:
+            return False
+        hwnd = int(self._cached_window.hwnd or 0)
+        if hwnd <= 0:
+            return False
+        try:
+            user32 = ctypes.windll.user32
+            GWL_EXSTYLE = -20
+            WS_EX_LAYERED = 0x00080000
+            LWA_ALPHA = 0x2
+            SWP_NOMOVE = 0x0002
+            SWP_NOSIZE = 0x0001
+            SWP_NOZORDER = 0x0004
+            SWP_NOACTIVATE = 0x0010
+            SWP_FRAMECHANGED = 0x0020
+            SWP_SHOWWINDOW = 0x0040
+            SW_RESTORE = 9
+            try:
+                window_desktop = self.get_current_virtual_desktop_index(hwnd)
+                current_desktop = self.get_system_current_virtual_desktop_index()
+                if window_desktop > 0 and current_desktop > 0 and window_desktop != current_desktop:
+                    self.move_window_to_virtual_desktop(hwnd, current_desktop)
+            except Exception:
+                pass
+            try:
+                if not user32.IsWindowVisible(hwnd) or user32.IsIconic(hwnd):
+                    user32.ShowWindow(hwnd, SW_RESTORE)
+            except Exception:
+                pass
+            user32.SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA)
+            if self._hidden_exstyle is not None:
+                user32.SetWindowLongW(hwnd, GWL_EXSTYLE, int(self._hidden_exstyle))
+                self._hidden_exstyle = None
+            else:
+                exstyle = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+                user32.SetWindowLongW(hwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED)
+            user32.SetWindowPos(
+                hwnd,
+                0,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW,
+            )
+            self._window_hidden = False
+            logger.info(f'窗口已恢复显示: hwnd=0x{hwnd:X}')
+            return True
+        except Exception as exc:
+            logger.warning(f'显示窗口失败: hwnd=0x{hwnd:X}, {exc}')
+            return False
+
     def get_capture_rect(self) -> tuple[int, int, int, int] | None:
         """获取截图区域，优先客户区，失败时回退整窗。"""
         if not self._cached_window:
@@ -1085,6 +1195,16 @@ class WindowManager:
             return []
         return [idx + 1 for idx in range(len(desktops))]
 
+    def get_system_current_virtual_desktop_index(self) -> int:
+        """读取当前系统所在虚拟桌面序号（从 1 开始），失败返回 0。"""
+        try:
+            from pyvda import VirtualDesktop
+
+            desktop = VirtualDesktop.current()
+            return int(getattr(desktop, 'number', 0) or 0)
+        except Exception:
+            return 0
+
     def get_current_virtual_desktop_index(self, hwnd: int) -> int:
         """读取窗口所在虚拟桌面序号（从 1 开始），失败返回 0。"""
         target_hwnd = self._get_root_window_handle(hwnd)
@@ -1100,7 +1220,11 @@ class WindowManager:
             value = int(getattr(desktop, 'number', 0) or 0)
             return max(0, value)
         except Exception as exc:
-            logger.debug(f'读取窗口虚拟桌面失败: hwnd=0x{target_hwnd:X}, {type(exc).__name__}: {exc}')
+            if target_hwnd not in self._virtual_desktop_error_logged:
+                self._virtual_desktop_error_logged.add(target_hwnd)
+                logger.debug(
+                    f'读取窗口虚拟桌面失败（后续同 hwnd 不再记录）: hwnd=0x{target_hwnd:X}, {type(exc).__name__}: {exc}'
+                )
             return 0
 
     def move_window_to_virtual_desktop(self, hwnd: int, target_desktop_index: int) -> bool:
@@ -1152,13 +1276,27 @@ class WindowManager:
             return False
 
     def is_window_visible(self) -> bool:
-        """检查窗口是否可见"""
+        """检查窗口是否可见（隐藏/最小化/其他虚拟桌面均视为不可见）。"""
+        if self._window_hidden:
+            return False
         if not self._cached_window:
             return False
+        hwnd = int(self._cached_window.hwnd or 0)
+        if hwnd <= 0:
+            return False
         try:
-            return bool(ctypes.windll.user32.IsWindowVisible(self._cached_window.hwnd))
+            if not ctypes.windll.user32.IsWindowVisible(hwnd):
+                return False
         except Exception:
             return False
+        try:
+            window_desktop = self.get_current_virtual_desktop_index(hwnd)
+            current_desktop = self.get_system_current_virtual_desktop_index()
+            if window_desktop > 0 and current_desktop > 0 and window_desktop != current_desktop:
+                return False
+        except Exception:
+            pass
+        return True
 
     def refresh_window_info(
         self,

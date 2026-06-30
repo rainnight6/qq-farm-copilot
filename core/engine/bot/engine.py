@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ctypes
 import io
 import multiprocessing as mp
 import queue
@@ -241,6 +242,31 @@ class BotEngine(QObject):
                 self.config_updated.emit(dict(payload))
             return
 
+        if etype == 'window':
+            if isinstance(payload, dict):
+                try:
+                    hwnd = int(payload.get('hwnd') or 0)
+                    if hwnd > 0:
+                        window = WindowInfo(
+                            hwnd=hwnd,
+                            title=str(payload.get('title') or ''),
+                            left=int(payload.get('left') or 0),
+                            top=int(payload.get('top') or 0),
+                            width=int(payload.get('width') or 0),
+                            height=int(payload.get('height') or 0),
+                            pid=int(payload.get('pid') or 0),
+                            process_name=str(payload.get('process_name') or ''),
+                        )
+                        self._window_manager.set_cached_window(window)
+                        logger.debug(
+                            '主进程同步 worker 窗口 | hwnd=0x{:X} title={}',
+                            hwnd,
+                            window.title,
+                        )
+                except Exception:
+                    pass
+            return
+
         if etype == 'command_result':
             req_id = str(event.get('id') or '')
             if req_id and req_id in self._pending_response_ids:
@@ -435,8 +461,108 @@ class BotEngine(QObject):
     def resume(self):
         self._send_command('resume', wait=False, ensure_worker=False)
 
+    def _ensure_cached_window(self) -> WindowInfo | None:
+        """如果缓存窗口缺失、已销毁或平台不匹配，按当前配置主动查找一次并写回缓存。"""
+        try:
+            platform_value = self.config.planting.window_platform.value
+            cached = self._window_manager.get_cached_window()
+            if cached:
+                hwnd = int(cached.hwnd or 0)
+                still_alive = bool(ctypes.windll.user32.IsWindow(hwnd)) if hwnd > 0 else False
+                platform_ok = self._window_manager._matches_platform(str(cached.process_name or ''), platform_value)
+                if not still_alive or not platform_ok:
+                    logger.info(
+                        '主进程窗口缓存失效，清除旧缓存 | hwnd=0x{:X} alive={} platform_ok={}',
+                        hwnd,
+                        still_alive,
+                        platform_ok,
+                    )
+                    self._window_manager.clear_cached_window()
+                    cached = None
+                else:
+                    return cached
+            window = self._window_manager.find_window(
+                self.config.window_title_keyword,
+                self.config.window_select_rule,
+                platform_value,
+            )
+            if window:
+                self._window_manager.set_cached_window(window)
+                logger.info(
+                    '主进程查找窗口并写入缓存 | hwnd=0x{:X} title={} process={}',
+                    int(window.hwnd),
+                    window.title,
+                    window.process_name,
+                )
+            else:
+                logger.warning('主进程查找窗口未命中')
+            return window
+        except Exception as exc:
+            logger.warning('主进程查找窗口异常 | error={}', exc)
+            return None
+
+    def get_window_handle(self) -> int | None:
+        """获取当前游戏窗口句柄；缓存未命中时主动查找。"""
+        try:
+            hwnd = self._window_manager.get_window_handle()
+            if hwnd:
+                return hwnd
+        except Exception:
+            pass
+        window = self._ensure_cached_window()
+        return int(window.hwnd) if window else None
+
+    def is_window_visible(self) -> bool:
+        """判断当前游戏窗口是否可见；缓存未命中时主动查找。"""
+        try:
+            if self._window_manager.get_window_handle():
+                return self._window_manager.is_window_visible()
+        except Exception:
+            pass
+        window = self._ensure_cached_window()
+        if not window:
+            return False
+        try:
+            return self._window_manager.is_window_visible()
+        except Exception:
+            return False
+
+    def toggle_game_window_visibility(self) -> bool:
+        """切换当前游戏窗口的可见状态，返回操作后的可见状态。"""
+        window = self._ensure_cached_window()
+        if not window:
+            return False
+        hwnd = int(window.hwnd)
+        try:
+            visible = self._window_manager.is_window_visible()
+            logger.info(
+                '切换窗口可见性 | hwnd=0x{:X} current_visible={} action={}',
+                hwnd,
+                visible,
+                'hide' if visible else 'show',
+            )
+            if visible:
+                self._window_manager.hide_window()
+            else:
+                self._window_manager.show_window()
+            after = self._window_manager.is_window_visible()
+            logger.info('切换窗口可见性完成 | hwnd=0x{:X} after_visible={}', hwnd, after)
+            return after
+        except Exception as exc:
+            logger.warning('切换窗口可见性失败 | hwnd=0x{:X} error={}', hwnd, exc)
+            return False
+
     def update_config(self, config: AppConfig):
+        old_keyword = str(getattr(self.config, 'window_title_keyword', '') or '')
+        old_rule = str(getattr(self.config, 'window_select_rule', '') or '')
+        old_platform = str(getattr(self.config.planting, 'window_platform', '') or '')
         self.config = config
+        new_keyword = str(getattr(self.config, 'window_title_keyword', '') or '')
+        new_rule = str(getattr(self.config, 'window_select_rule', '') or '')
+        new_platform = str(getattr(self.config.planting, 'window_platform', '') or '')
+        if old_keyword != new_keyword or old_rule != new_rule or old_platform != new_platform:
+            logger.info('窗口查找配置变更，清除主进程窗口缓存')
+            self._window_manager.clear_cached_window()
         if self._worker and self._worker.is_alive():
             self._send_command('update_config', data=self.config.model_dump(), wait=False)
 

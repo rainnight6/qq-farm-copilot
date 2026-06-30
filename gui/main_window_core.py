@@ -122,6 +122,7 @@ class Workspace:
     btn_start: PushButton
     btn_pause: PushButton
     btn_stop: PushButton
+    btn_hide: PushButton
     free_hint_label: QLabel
     state: str = 'idle'
     last_preview: Image.Image | None = None
@@ -919,17 +920,20 @@ class MainWindow(FluentWindow):
         bar = CardWidget(container)
         hb = QHBoxLayout(bar)
         hb.setContentsMargins(10, 8, 10, 8)
-        start, pause, stop = (
+        start, pause, stop, hide = (
             PushButton('开始', bar),
             PushButton('暂停', bar),
             PushButton('停止', bar),
+            PushButton('隐藏', bar),
         )
         start.setIcon(FluentIcon.PLAY.icon(color=QColor('#16a34a')))
         pause.setIcon(FluentIcon.PAUSE.icon(color=QColor('#f59e0b')))
         stop.setIcon(FluentIcon.CANCEL.icon(color=QColor('#ef4444')))
+        hide.setIcon(FluentIcon.HIDE.icon(color=QColor('#64748b')))
         pause.setEnabled(False)
         stop.setEnabled(False)
-        for b in (start, pause, stop):
+        hide.setEnabled(False)
+        for b in (start, pause, stop, hide):
             hb.addWidget(b)
         hb.addStretch()
         free_hint = QLabel(bar)
@@ -999,6 +1003,7 @@ class MainWindow(FluentWindow):
         start.clicked.connect(lambda: self._on_start(s.instance_id))
         pause.clicked.connect(lambda: self._on_pause(s.instance_id))
         stop.clicked.connect(lambda: self._on_stop(s.instance_id))
+        hide.clicked.connect(lambda: self._on_hide(s.instance_id))
 
         ws = Workspace(
             s.instance_id,
@@ -1015,6 +1020,7 @@ class MainWindow(FluentWindow):
             start,
             pause,
             stop,
+            hide,
             free_hint,
         )
         self._bind(ws)
@@ -1211,6 +1217,37 @@ class MainWindow(FluentWindow):
         ws.btn_pause.setEnabled(running and not starting)
         ws.btn_stop.setEnabled(running)
         ws.btn_pause.setText('恢复' if ws.state == 'paused' else '暂停')
+        self._sync_hide_btn(ws)
+
+    def _sync_hide_btn(self, ws: Workspace) -> None:
+        hwnd = ws.engine.get_window_handle()
+        has_window = bool(hwnd and hwnd > 0)
+        if not has_window:
+            ws.btn_hide.setEnabled(False)
+            ws.btn_hide.setText('隐藏')
+            ws.btn_hide.setIcon(FluentIcon.HIDE.icon(color=QColor('#64748b')))
+            return
+        visible = ws.engine.is_window_visible()
+        ws.btn_hide.setEnabled(True)
+        if visible:
+            ws.btn_hide.setText('隐藏')
+            ws.btn_hide.setIcon(FluentIcon.HIDE.icon(color=QColor('#64748b')))
+        else:
+            ws.btn_hide.setText('显示')
+            ws.btn_hide.setIcon(FluentIcon.VIEW.icon(color=QColor('#64748b')))
+
+    def _on_hide(self, iid: str) -> None:
+        ws = self._workspaces.get(iid)
+        if ws is None:
+            return
+        try:
+            visible = ws.engine.toggle_game_window_visibility()
+            self._toast(
+                'success' if visible else 'info', '窗口操作', '游戏窗口已显示' if visible else '游戏窗口已隐藏', 1500
+            )
+        except Exception as exc:
+            self._toast('warning', '窗口操作失败', str(exc or '切换窗口可见状态失败'), 2400)
+        self._sync_hide_btn(ws)
 
     def _on_start(self, iid: str) -> None:
         ws = self._workspaces.get(iid)

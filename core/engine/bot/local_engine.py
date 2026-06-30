@@ -20,6 +20,7 @@ class LocalBotEngine(BotInitMixin, BotExecutorMixin, BotRuntimeMixin, BotVisionM
     stats_updated = pyqtSignal(dict)
     detection_result = pyqtSignal(object)
     config_updated = pyqtSignal(dict)
+    window_updated = pyqtSignal(dict)
 
     def __init__(
         self,

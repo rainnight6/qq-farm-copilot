@@ -151,6 +151,7 @@ def bot_worker_main(
     engine.state_changed.connect(lambda state: _safe_put(event_queue, {'type': 'state', 'data': str(state)}))
     engine.stats_updated.connect(lambda stats: _safe_put(event_queue, {'type': 'stats', 'data': dict(stats or {})}))
     engine.config_updated.connect(lambda cfg: _safe_put(event_queue, {'type': 'config', 'data': dict(cfg or {})}))
+    engine.window_updated.connect(lambda info: _safe_put(event_queue, {'type': 'window', 'data': dict(info or {})}))
 
     engine.screenshot_updated.connect(
         lambda image: _safe_put(

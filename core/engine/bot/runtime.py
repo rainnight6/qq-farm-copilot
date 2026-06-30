@@ -752,6 +752,21 @@ class BotRuntimeMixin:
             self.action_executor.update_window_handle(window.hwnd)
         if self.device is not None:
             self.device.set_rect(rect)
+        try:
+            self.window_updated.emit(
+                {
+                    'hwnd': int(window.hwnd),
+                    'title': str(window.title),
+                    'left': int(window.left),
+                    'top': int(window.top),
+                    'width': int(window.width),
+                    'height': int(window.height),
+                    'pid': int(window.pid or 0),
+                    'process_name': str(window.process_name or ''),
+                }
+            )
+        except Exception:
+            pass
         return rect
 
     def _initialize_window_after_launch(
@@ -1211,3 +1226,43 @@ class BotRuntimeMixin:
         self.scheduler.force_state('running')
         self.state_changed.emit('running')
         self.stats_updated.emit(self.scheduler.get_stats())
+
+    def toggle_game_window_visibility(self) -> bool:
+        """切换当前游戏窗口的可见状态，返回操作后的可见状态。"""
+        window = self.window_manager.get_cached_window()
+        if window:
+            hwnd = int(window.hwnd or 0)
+            still_alive = bool(ctypes.windll.user32.IsWindow(hwnd)) if hwnd > 0 else False
+            if not still_alive:
+                window = None
+        if not window:
+            platform_value = self.config.planting.window_platform.value
+            window = self.window_manager.find_window(
+                self.config.window_title_keyword,
+                self.config.window_select_rule,
+                platform_value,
+            )
+            if window:
+                self.window_manager.set_cached_window(window)
+        if not window:
+            logger.warning('切换窗口可见性失败: 未找到目标窗口')
+            return False
+        hwnd = int(window.hwnd)
+        try:
+            visible = self.window_manager.is_window_visible()
+            logger.info(
+                '切换窗口可见性 | hwnd=0x{:X} current_visible={} action={}',
+                hwnd,
+                visible,
+                'hide' if visible else 'show',
+            )
+            if visible:
+                self.window_manager.hide_window()
+            else:
+                self.window_manager.show_window()
+            after = self.window_manager.is_window_visible()
+            logger.info('切换窗口可见性完成 | hwnd=0x{:X} after_visible={}', hwnd, after)
+            return after
+        except Exception as exc:
+            logger.warning('切换窗口可见性失败 | hwnd=0x{:X} error={}', hwnd, exc)
+            return False
