@@ -42,10 +42,6 @@ DEFAULT_ALIGN_SWIPE_V_P2 = (200, 220)
 DEFAULT_ALIGN_SWIPE_SPEED = 30
 DEFAULT_ALIGN_SWIPE_DELAY = 0.2
 DEFAULT_ALIGN_SWIPE_HOLD = 0.1
-# 微信平台回正前滚轮重置缩放参数：先向下滚到最小，再逐步向上放大，直到识别出背景树。
-WECHAT_ZOOM_RESET_DOWN_STEPS = 5
-WECHAT_ZOOM_RESET_MAX_UP_STEPS = 20
-WECHAT_ZOOM_RESET_STEP_DELAY = 0.05
 
 
 @dataclass(slots=True)
@@ -131,11 +127,19 @@ class TaskBase:
     ) -> bool:
         """按背景树锚点将画面回正。"""
         from core.ui.assets import BTN_BACKGROUND_TREE
+        from core.ui.page import page_main, page_skin
 
+        reset_on_missing = False
         while 1:
             self.ui.device.screenshot()
             anchor = self.ui.appear_location(BTN_BACKGROUND_TREE, offset=30, threshold=0.78, static=False)
             if anchor is None:
+                if not reset_on_missing:
+                    logger.warning('{}: 未识别到背景树锚点，尝试通过装扮界面重置缩放', log_prefix)
+                    self.ui.ui_ensure(page_skin)
+                    self.ui.ui_ensure(page_main)
+                    reset_on_missing = True
+                    continue
                 logger.warning('{}: 未识别到背景树锚点', log_prefix)
                 return False
 
@@ -172,53 +176,6 @@ class TaskBase:
                 continue
 
             return True
-
-    def _reset_wechat_zoom_before_align(self, max_attempts: int = 5) -> None:
-        """微信平台：回正前滚轮缩放到最小，再逐步放大直到识别到背景树，支持重试。"""
-        from core.ui.assets import BTN_BACKGROUND_TREE
-
-        logger.info('微信平台: 滚轮重置界面缩放并等待背景树出现')
-        rect = self.ui.device.rect
-        if rect is None:
-            logger.warning('微信平台: 未获取到窗口区域，跳过滚轮重置')
-            return
-        center_x = int(rect[0] + rect[2] / 2)
-        center_y = int(rect[1] + rect[3] / 2)
-
-        for attempt in range(1, int(max_attempts) + 1):
-            logger.info('微信平台: 滚轮重置尝试 {} / {}', attempt, int(max_attempts))
-
-            for _ in range(WECHAT_ZOOM_RESET_DOWN_STEPS):
-                self.ui.device.mouse_wheel(-240, center_x, center_y, desc='wechat_zoom_reset_down')
-                self.ui.device.sleep(WECHAT_ZOOM_RESET_STEP_DELAY)
-
-            for step in range(1, WECHAT_ZOOM_RESET_MAX_UP_STEPS + 1):
-                self.ui.device.mouse_wheel(120, center_x, center_y, desc='wechat_zoom_reset_up')
-                self.ui.device.sleep(WECHAT_ZOOM_RESET_STEP_DELAY)
-                self.ui.device.screenshot()
-                anchor = self.ui.appear_location(BTN_BACKGROUND_TREE, offset=30, threshold=0.8, static=False)
-                if anchor is not None:
-                    logger.info(
-                        '微信平台: 背景树已出现，停止放大 | 尝试={} 上滚步数={} 中心=({},{})',
-                        attempt,
-                        step,
-                        center_x,
-                        center_y,
-                    )
-                    return
-
-            logger.warning(
-                '微信平台: 第 {} 次尝试放大到最大步数仍未识别背景树，将重试',
-                attempt,
-            )
-
-        logger.warning(
-            '微信平台: {} 次尝试后仍未识别背景树 | max_up={} 中心=({},{})',
-            int(max_attempts),
-            WECHAT_ZOOM_RESET_MAX_UP_STEPS,
-            center_x,
-            center_y,
-        )
 
     def is_task_enabled(self, task_name: str) -> bool:
         """按任务名读取调度启用状态。"""
@@ -267,6 +224,25 @@ class TaskBase:
             return []
         return [item for item in self.parse_land_detail_plots() if self.parse_truthy(item.get(key, default))]
 
+    def appear_land_right(
+        self,
+        offset: int | tuple[int, int, int, int] = (-30, -30, 160, 30),
+        threshold: float = 0.9,
+        static: bool = False,
+    ) -> tuple[int, int] | None:
+        """识别右锚点；主模板和备用模板同时匹配，返回置信度更高的命中结果。"""
+        from core.ui.assets import BTN_LAND_RIGHT, BTN_LAND_RIGHT_2
+
+        primary = self.ui.appear_location(BTN_LAND_RIGHT, offset=offset, threshold=threshold, static=static)
+        fallback = self.ui.appear_location(BTN_LAND_RIGHT_2, offset=offset, threshold=threshold, static=static)
+        if primary is not None and fallback is not None:
+            primary_score = BTN_LAND_RIGHT._last_score
+            fallback_score = BTN_LAND_RIGHT_2._last_score
+            return primary if primary_score >= fallback_score else fallback
+        if primary is not None:
+            return primary
+        return fallback
+
     def collect_land_cells(
         self,
         *,
@@ -285,13 +261,11 @@ class TaskBase:
             anchor_span: 左右锚点之间的像素间距 (dx, dy)。仅识别到单侧锚点时，
                 用此间距推断另一侧位置；传 None 时使用基准间距。
         """
-        from core.ui.assets import BTN_LAND_LEFT, BTN_LAND_RIGHT
+        from core.ui.assets import BTN_LAND_LEFT
         from utils.land_grid import get_lands_from_land_anchor
 
         self.ui.device.screenshot()
-        land_right_anchor = self.ui.appear_location(
-            BTN_LAND_RIGHT, offset=(-30, -30, 160, 30), threshold=0.9, static=static
-        )
+        land_right_anchor = self.appear_land_right(offset=(-30, -30, 160, 30), threshold=0.9, static=static)
         land_left_anchor = self.ui.appear_location(
             BTN_LAND_LEFT, offset=(-160, -30, 30, 30), threshold=0.9, static=static
         )

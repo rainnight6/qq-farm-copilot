@@ -41,6 +41,7 @@ class UI(Handler):
         page_mail,
         page_menu,
         page_share,
+        page_skin,
     ]
 
     def __init__(

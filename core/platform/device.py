@@ -220,26 +220,6 @@ class Device:
         result = self.engine.action_executor.execute_action(action)
         return bool(result.success)
 
-    def mouse_wheel(self, delta: int, x: int | None = None, y: int | None = None, *, desc: str = 'wheel') -> bool:
-        """在指定屏幕绝对坐标处发送鼠标滚轮事件；未指定坐标时使用窗口中心。"""
-        if not self._wait_if_paused():
-            return False
-        if not self.engine.action_executor:
-            return False
-
-        if x is None or y is None:
-            rect = self.rect
-            if rect is None:
-                logger.warning('滚轮: 未设置窗口区域，无法计算中心坐标')
-                return False
-            target_x = int(rect[0] + rect[2] / 2)
-            target_y = int(rect[1] + rect[3] / 2)
-        else:
-            target_x = int(x)
-            target_y = int(y)
-
-        return self.engine.action_executor.send_wheel_absolute(target_x, target_y, int(delta), desc=desc)
-
     def _relative_to_absolute(self, x: int, y: int) -> tuple[int, int] | None:
         """将逻辑坐标转换为屏幕绝对坐标。"""
         if not self.engine.action_executor:

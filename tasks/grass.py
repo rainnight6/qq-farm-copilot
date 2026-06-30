@@ -245,8 +245,7 @@ class TaskGrass(TaskBase):
     def _collect_land_cells_for_grass(self) -> list:
         """为种草任务收集地块网格：好友农场视角下使用更宽松的锚点检测。"""
         self.ui.device.screenshot()
-        right_anchor = self.ui.appear_location(
-            BTN_LAND_RIGHT,
+        right_anchor = self.appear_land_right(
             offset=(-30, -30, 160, 30),
             threshold=0.7,
             static=False,
@@ -315,8 +314,7 @@ class TaskGrass(TaskBase):
 
         # 2) 回退：尝试识别当前画面左右地块锚点
         self.ui.device.screenshot()
-        right_anchor = self.ui.appear_location(
-            BTN_LAND_RIGHT,
+        right_anchor = self.appear_land_right(
             offset=(-30, -30, 160, 30),
             threshold=0.8,
             static=False,

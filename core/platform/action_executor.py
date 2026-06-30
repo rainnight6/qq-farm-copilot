@@ -17,12 +17,9 @@ from utils.run_mode_decorator import Config as DecoratorConfig
 WM_MOUSEMOVE = 0x0200
 WM_LBUTTONDOWN = 0x0201
 WM_LBUTTONUP = 0x0202
-WM_MOUSEWHEEL = 0x020A
 MK_LBUTTON = 0x0001
 MOUSEEVENTF_LEFTDOWN = 0x0002
 MOUSEEVENTF_LEFTUP = 0x0004
-MOUSEEVENTF_WHEEL = 0x0800
-WHEEL_DELTA = 120
 
 user32 = ctypes.windll.user32
 
@@ -147,20 +144,6 @@ class ActionExecutor:
         self._bg_last_client_pos = (cx, cy)
         return True
 
-    def _send_wheel_background(self, abs_x: int, abs_y: int, delta: int) -> bool:
-        """后台消息发送鼠标滚轮事件。"""
-        if not self._hwnd:
-            return False
-        client = self._screen_to_client(abs_x, abs_y)
-        if not client:
-            return False
-        cx, cy = client
-        lparam = self._make_lparam(cx, cy)
-        wparam = int(delta) << 16
-        hwnd = wintypes.HWND(self._hwnd)
-        user32.SendMessageW(hwnd, WM_MOUSEWHEEL, wparam, lparam)
-        return True
-
     @staticmethod
     def _set_cursor_pos(abs_x: int, abs_y: int) -> bool:
         """将系统鼠标移动到绝对坐标。"""
@@ -220,15 +203,6 @@ class ActionExecutor:
         cls._mouse_left_up_foreground()
         return True
 
-    @classmethod
-    def _send_wheel_foreground(cls, abs_x: int, abs_y: int, delta: int) -> bool:
-        """前台模式发送鼠标滚轮事件。"""
-        if not cls._move_cursor_foreground(int(abs_x), int(abs_y), duration=0.02):
-            return False
-        time.sleep(0.03)
-        user32.mouse_event(int(MOUSEEVENTF_WHEEL), 0, 0, int(delta), 0)
-        return True
-
     @DecoratorConfig.when(RUN_MODE=RunMode.BACKGROUND)
     def _click_by_mode(self, target_x: int, target_y: int) -> bool:
         return self._click_background(int(target_x), int(target_y))
@@ -236,14 +210,6 @@ class ActionExecutor:
     @DecoratorConfig.when(RUN_MODE=RunMode.FOREGROUND)
     def _click_by_mode(self, target_x: int, target_y: int) -> bool:
         return self._click_foreground(int(target_x), int(target_y))
-
-    @DecoratorConfig.when(RUN_MODE=RunMode.BACKGROUND)
-    def _send_wheel_by_mode(self, target_x: int, target_y: int, delta: int) -> bool:
-        return self._send_wheel_background(int(target_x), int(target_y), int(delta))
-
-    @DecoratorConfig.when(RUN_MODE=RunMode.FOREGROUND)
-    def _send_wheel_by_mode(self, target_x: int, target_y: int, delta: int) -> bool:
-        return self._send_wheel_foreground(int(target_x), int(target_y), int(delta))
 
     def click_absolute(
         self,
@@ -283,26 +249,6 @@ class ActionExecutor:
                 err_x, err_y = int(rel_x), int(rel_y)
             name = self._format_action_name(desc)
             logger.error(f'点击失败: {name} | 坐标: ({err_x}, {err_y}) | 错误: {e}')
-            return False
-
-    def send_wheel_absolute(self, x: int, y: int, delta: int, *, desc: str = 'wheel') -> bool:
-        """在屏幕绝对坐标处发送鼠标滚轮事件。"""
-        try:
-            target_x = int(x)
-            target_y = int(y)
-            if not self._in_window(target_x, target_y):
-                logger.warning(f'滚轮越界: ({target_x}, {target_y})')
-                return False
-            ok = bool(self._send_wheel_by_mode(target_x, target_y, int(delta)))
-            name = self._format_action_name(desc)
-            if ok:
-                logger.debug(f'滚轮: {name} | 坐标: ({target_x}, {target_y}) 增量: {delta}')
-                return True
-            logger.error(f'滚轮失败: {name} | 坐标: ({target_x}, {target_y}) 增量: {delta}')
-            return False
-        except Exception as e:
-            name = self._format_action_name(desc)
-            logger.error(f'滚轮失败: {name} | 坐标: ({x}, {y}) 增量: {delta} | 错误: {e}')
             return False
 
     def move_abs(self, x: int, y: int, duration: float = 0.0) -> bool:

@@ -18,7 +18,7 @@ from core.ui.assets import (
     BTN_LAND_RIGHT,
     ICON_LAND_UPGRADE,
 )
-from core.ui.page import GOTO_MAIN, page_main
+from core.ui.page import GOTO_MAIN, page_main, page_skin
 from tasks.base import TaskBase
 from tasks.main_actions import TaskMainActionsMixin
 from utils.land_grid import LandCell
@@ -128,8 +128,8 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         _ = rect
         logger.info('地块巡查: 开始')
         self.ui.ui_ensure(page_main)
-        if str(self.config.planting.window_platform.value).lower() == 'wechat':
-            self._reset_wechat_zoom_before_align()
+        self.ui.ui_ensure(page_skin)
+        self.ui.ui_ensure(page_main)
         aligned = False
         for attempt in range(3):
             aligned = self.align_view_by_background_tree(log_prefix='地块巡查')
@@ -150,11 +150,9 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         # 在回正状态下同时识别左右锚点并记录日志，侧滑后统一使用固定基线 span 推断对侧锚点。
         self.ui.device.sleep(0.2)
         self.ui.device.screenshot()
-        full_right_anchor = self.ui.appear_location(
-            BTN_LAND_RIGHT, offset=(-30, -30, 160, 30), threshold=0.9, static=False
-        )
+        full_right_anchor = self.appear_land_right(offset=(-30, -30, 160, 30), threshold=0.8, static=False)
         full_left_anchor = self.ui.appear_location(
-            BTN_LAND_LEFT, offset=(-160, -30, 30, 30), threshold=0.9, static=False
+            BTN_LAND_LEFT, offset=(-160, -30, 30, 30), threshold=0.8, static=False
         )
         logger.info(
             '地块巡查: 初始锚点识别 | 右锚点={} 左锚点={}',
@@ -247,8 +245,8 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
                 scan_direction='ltr',
             )
         finally:
-            if str(self.config.planting.window_platform.value).lower() == 'wechat':
-                self._reset_wechat_zoom_before_align()
+            self.ui.ui_ensure(page_skin)
+            self.ui.ui_ensure(page_main)
             self.align_view_by_background_tree(log_prefix='地块巡查')
             self.ui.ui_ensure(page_main)
 
@@ -323,21 +321,31 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         target_offset = (-30, -30, 160, 30)
         opposite_button = BTN_LAND_LEFT
         opposite_offset = (-160, -30, 30, 30)
+        opposite_is_right = False
         if anchor_button == BTN_LAND_LEFT:
             target_offset = (-160, -30, 30, 30)
             opposite_button = BTN_LAND_RIGHT
             opposite_offset = (-30, -30, 160, 30)
+            opposite_is_right = True
 
         while 1:
             self.ui.device.screenshot()
-            location = self.ui.appear_location(anchor_button, offset=target_offset, threshold=0.9, static=False)
+            if anchor_button == BTN_LAND_RIGHT:
+                location = self.appear_land_right(offset=target_offset, threshold=0.9, static=False)
+            else:
+                location = self.ui.appear_location(anchor_button, offset=target_offset, threshold=0.9, static=False)
             current_anchor: tuple[int, int] | None = None
             if location is not None:
                 current_anchor = (int(location[0]), int(location[1]))
                 logger.debug('地块巡查: 锚点识别 | 锚点={} 位置={}', anchor_button.name, current_anchor)
 
             if current_anchor is None:
-                opposite = self.ui.appear_location(opposite_button, offset=opposite_offset, threshold=0.9, static=False)
+                if opposite_is_right:
+                    opposite = self.appear_land_right(offset=opposite_offset, threshold=0.9, static=False)
+                else:
+                    opposite = self.ui.appear_location(
+                        opposite_button, offset=opposite_offset, threshold=0.9, static=False
+                    )
                 if opposite is not None:
                     logger.warning(
                         '地块巡查: 期望锚点未命中但对侧锚点可见，疑似滑过头 | 期望={} 对侧={}',

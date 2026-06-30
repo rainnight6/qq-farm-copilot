@@ -489,7 +489,7 @@ class TaskMainActionsMixin:
         if not refs:
             return []
         self.ui.device.screenshot()
-        land_right_anchor = self.ui.appear_location(BTN_LAND_RIGHT, offset=30, threshold=0.95, static=False)
+        land_right_anchor = self.appear_land_right(offset=30, threshold=0.95, static=False)
         land_left_anchor = self.ui.appear_location(BTN_LAND_LEFT, offset=30, threshold=0.95, static=False)
         if land_right_anchor is None and land_left_anchor is None:
             logger.warning('自动施肥: 未识别到地块锚点 | refs={}', refs)
