@@ -127,7 +127,6 @@ class TaskBase:
     ) -> bool:
         """按背景树锚点将画面回正。"""
         from core.ui.assets import BTN_BACKGROUND_TREE
-        from core.ui.page import page_main, page_skin
 
         reset_on_missing = False
         while 1:
@@ -136,8 +135,7 @@ class TaskBase:
             if anchor is None:
                 if not reset_on_missing:
                     logger.warning('{}: 未识别到背景树锚点，尝试通过装扮界面重置缩放', log_prefix)
-                    self.ui.ui_ensure(page_skin)
-                    self.ui.ui_ensure(page_main)
+                    self._reset_zoom_via_skin_page()
                     reset_on_missing = True
                     continue
                 logger.warning('{}: 未识别到背景树锚点', log_prefix)
@@ -176,6 +174,44 @@ class TaskBase:
                 continue
 
             return True
+
+    def _reset_zoom_via_skin_page(self, max_attempts: int = 3) -> bool:
+        """通过进入装扮界面再返回主页的方式重置画面缩放；装扮按钮和关闭按钮位置均不固定，使用全图模板匹配动态定位。"""
+        from core.ui.assets import BTN_CLOSE, MAIN_GOTO_SKIN, SKIN_CHECK
+        from core.ui.page import page_main
+
+        self.ui.ui_ensure(page_main)
+        entered = False
+        for attempt in range(1, int(max_attempts) + 1):
+            self.ui.device.screenshot()
+            if self.ui.appear(SKIN_CHECK, offset=30, static=True):
+                entered = True
+                logger.info('已进入装扮界面，准备返回主页重置缩放')
+                break
+            if self.ui.appear_then_click(MAIN_GOTO_SKIN, offset=30, static=False, interval=0, threshold=0.7):
+                logger.info('点击装扮按钮，等待页面切换 | attempt={}', attempt)
+                self.ui.device.sleep(0.5)
+                continue
+            logger.warning('未找到装扮按钮，重试 | attempt={}', attempt)
+        if not entered:
+            logger.warning('未能进入装扮界面')
+            self.ui.ui_ensure(page_main)
+            return False
+        exited = False
+        for attempt in range(1, int(max_attempts) + 1):
+            self.ui.device.screenshot()
+            if not self.ui.appear(SKIN_CHECK, offset=30, static=True):
+                logger.info('已退出装扮界面')
+                exited = True
+                break
+            if self.ui.appear_then_click(BTN_CLOSE, offset=30, static=False, interval=0, threshold=0.7):
+                logger.info('点击关闭按钮，等待返回主页 | attempt={}', attempt)
+                self.ui.device.sleep(0.5)
+                continue
+            logger.warning('未找到关闭按钮，重试 | attempt={}', attempt)
+            self.ui.device.sleep(0.3)
+        self.ui.ui_ensure(page_main)
+        return exited
 
     def is_task_enabled(self, task_name: str) -> bool:
         """按任务名读取调度启用状态。"""

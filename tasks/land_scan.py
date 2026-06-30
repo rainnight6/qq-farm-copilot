@@ -18,7 +18,7 @@ from core.ui.assets import (
     BTN_LAND_RIGHT,
     ICON_LAND_UPGRADE,
 )
-from core.ui.page import GOTO_MAIN, page_main, page_skin
+from core.ui.page import GOTO_MAIN, page_main
 from tasks.base import TaskBase
 from tasks.main_actions import TaskMainActionsMixin
 from utils.land_grid import LandCell
@@ -128,8 +128,7 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         _ = rect
         logger.info('地块巡查: 开始')
         self.ui.ui_ensure(page_main)
-        self.ui.ui_ensure(page_skin)
-        self.ui.ui_ensure(page_main)
+        self._reset_zoom_via_skin_page()
         aligned = False
         for attempt in range(3):
             aligned = self.align_view_by_background_tree(log_prefix='地块巡查')
@@ -245,8 +244,7 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
                 scan_direction='ltr',
             )
         finally:
-            self.ui.ui_ensure(page_skin)
-            self.ui.ui_ensure(page_main)
+            self._reset_zoom_via_skin_page()
             self.align_view_by_background_tree(log_prefix='地块巡查')
             self.ui.ui_ensure(page_main)
 
