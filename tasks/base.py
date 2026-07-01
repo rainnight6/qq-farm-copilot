@@ -339,14 +339,18 @@ class TaskBase:
         return center_by_plot_id
 
     def collect_land_targets_by_flag(
-        self, flag: str, *, log_prefix: str = '土地流程'
+        self, flag: str, *, static: bool = True, log_prefix: str = '土地流程'
     ) -> list[tuple[str, tuple[int, int]]]:
-        """按土地详情标记收集地块坐标。"""
+        """按土地详情标记收集地块坐标。
+
+        Args:
+            static: 是否仅在按钮预设区域附近检索锚点。滑动土地视图后应传入 False。
+        """
         pending_entries = self.parse_land_detail_plots_by_flag(flag)
         if not pending_entries:
             return []
 
-        cells = self.collect_land_cells(log_prefix=log_prefix)
+        cells = self.collect_land_cells(log_prefix=log_prefix, static=static)
         if not cells:
             return []
         center_by_plot_id = {str(cell.label): (int(cell.center[0]), int(cell.center[1])) for cell in cells}

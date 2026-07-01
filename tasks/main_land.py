@@ -20,6 +20,22 @@ LAND_SCAN_FRAME_HEIGHT = 960
 # 空地弹窗升级图标 ROI：相对 BTN_CROP_REMOVAL 中心 (dx1, dy1, dx2, dy2)。
 LAND_UPGRADE_REGION_OFFSET = (-100, -50, 0, -0)
 
+# 自动扩建按钮识别 ROI：全屏宽度，垂直方向 46%-68% 区域。
+BTN_EXPAND_SEARCH_ROI = (
+    0,
+    int(LAND_SCAN_FRAME_HEIGHT * 0.46),
+    LAND_SCAN_FRAME_WIDTH,
+    int(LAND_SCAN_FRAME_HEIGHT * 0.68),
+)
+# 基于 BTN_EXPAND 固定 area 计算 offset，使模板匹配在该 ROI 内进行。
+BTN_EXPAND_THRESHOLD = 0.8
+BTN_EXPAND_SEARCH_OFFSET = (
+    BTN_EXPAND_SEARCH_ROI[0] - BTN_EXPAND.area[0],
+    BTN_EXPAND_SEARCH_ROI[1] - BTN_EXPAND.area[1],
+    BTN_EXPAND_SEARCH_ROI[2] - BTN_EXPAND.area[2],
+    BTN_EXPAND_SEARCH_ROI[3] - BTN_EXPAND.area[3],
+)
+
 
 class TaskMainLandMixin:
     """提供自动扩建与自动升级流程。"""
@@ -86,20 +102,25 @@ class TaskMainLandMixin:
         return group_12345, group_6789
 
     def _swipe_to_upgrade_group(self, group_name: str) -> None:
-        """根据分组执行升级前画面滑动。"""
+        """根据分组执行升级前画面滑动。
+
+        与土地巡查一致：
+        - 左滑（P2->P1）画面左移，露出左侧地块；
+        - 右滑（P1->P2）画面右移，露出右侧地块。
+        """
         # 参考土地巡查任务手势：LAND_SCAN_SWIPE_H_P1=(250,190), LAND_SCAN_SWIPE_H_P2=(200,190)
         left_p1 = (250, 190)
         left_p2 = (200, 190)
         right_swipe_times = int(self.config.planting.land_swipe_right_times)
         left_swipe_times = int(self.config.planting.land_swipe_left_times)
         if group_name == '12345':
-            for _ in range(right_swipe_times):
-                self.ui.device.swipe(left_p1, left_p2, speed=30)
+            for _ in range(left_swipe_times):
+                self.ui.device.swipe(left_p2, left_p1, speed=30)
                 self.ui.device.sleep(0.5)
             return
         if group_name == '6789':
-            for _ in range(left_swipe_times):
-                self.ui.device.swipe(left_p2, left_p1, speed=30)
+            for _ in range(right_swipe_times):
+                self.ui.device.swipe(left_p1, left_p2, speed=30)
                 self.ui.device.sleep(0.5)
 
     @staticmethod
@@ -126,7 +147,7 @@ class TaskMainLandMixin:
         """滑动后重新采集当前组的实时地块坐标。"""
         if not group_refs:
             return []
-        live_targets = self.collect_land_targets_by_flag('need_upgrade', log_prefix='自动升级流程')
+        live_targets = self.collect_land_targets_by_flag('need_upgrade', static=False, log_prefix='自动升级流程')
         if not live_targets:
             return []
         live_map = {ref: point for ref, point in live_targets}
@@ -136,7 +157,7 @@ class TaskMainLandMixin:
             logger.warning('自动升级流程: 当前画面未找到地块 | 序号={}', missing_refs)
         return targets
 
-    def _upgrade_targets(self, targets: list[tuple[str, tuple[int, int]]]) -> bool:
+    def _upgrade_targets(self, targets: list[tuple[str, tuple[int, int]]]) -> None:
         """执行一组地块升级。"""
         for plot_ref, point in targets:
             logger.info('自动升级流程: 开始升级地块 | 序号={}', plot_ref)
@@ -185,7 +206,6 @@ class TaskMainLandMixin:
 
             self.ui.device.click_button(GOTO_MAIN)
             self.ui.device.sleep(0.2)
-        return
 
     def _try_expand(self) -> str | None:
         """执行一次土地扩建流程"""
@@ -194,7 +214,7 @@ class TaskMainLandMixin:
         # 点击空白处
         self.ui.device.click_button(GOTO_MAIN)
         self.ui.device.screenshot()
-        if not self.ui.appear(BTN_EXPAND, offset=30, static=False):
+        if not self.ui.appear(BTN_EXPAND, offset=BTN_EXPAND_SEARCH_OFFSET, static=True, threshold=BTN_EXPAND_THRESHOLD):
             logger.info('自动扩建: 未发现待扩建土地')
             return None
 
@@ -202,7 +222,9 @@ class TaskMainLandMixin:
         while 1:
             self.ui.device.screenshot()
 
-            if self.ui.appear_then_click(BTN_EXPAND, offset=30, interval=1, static=False):
+            if self.ui.appear_then_click(
+                BTN_EXPAND, offset=BTN_EXPAND_SEARCH_OFFSET, interval=1, static=True, threshold=BTN_EXPAND_THRESHOLD
+            ):
                 continue
             if self.ui.appear(BTN_EXPAND_CHECK, offset=30) and self.ui.appear_then_click(
                 BTN_EXPAND_DIRECT_CONFIRM, offset=30, interval=1
@@ -212,7 +234,9 @@ class TaskMainLandMixin:
                 BTN_EXPAND_CONFIRM, offset=30, interval=1
             ):
                 continue
-            if not self.ui.appear(BTN_EXPAND, offset=30, static=False):
+            if not self.ui.appear(
+                BTN_EXPAND, offset=BTN_EXPAND_SEARCH_OFFSET, static=True, threshold=BTN_EXPAND_THRESHOLD
+            ):
                 if not confirm_timer.started():
                     confirm_timer.start()
                 if confirm_timer.reached():
