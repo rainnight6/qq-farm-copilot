@@ -195,6 +195,7 @@ class TaskBase:
             logger.warning('未找到装扮按钮，重试 | attempt={}', attempt)
         if not entered:
             logger.warning('未能进入装扮界面')
+            MAIN_GOTO_SKIN._button_offset = None
             self.ui.ui_ensure(page_main)
             return False
         exited = False
@@ -210,6 +211,8 @@ class TaskBase:
                 continue
             logger.warning('未找到关闭按钮，重试 | attempt={}', attempt)
             self.ui.device.sleep(0.3)
+        MAIN_GOTO_SKIN._button_offset = None
+        BTN_CLOSE._button_offset = None
         self.ui.ui_ensure(page_main)
         return exited
 
