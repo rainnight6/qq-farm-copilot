@@ -103,7 +103,8 @@ class SettingsPanel(QWidget):
         self.warehouse_first = CheckBox('仓库优先', plant_card)
         plant_form.addRow(self._field_label('播种', plant_card), self.warehouse_first)
         warehouse_tip = CaptionLabel(
-            '直接按照仓库中的种子顺序种植，不包括四格作物，如果仓库为空则按照以上选择作物购买种植', plant_card
+            '直接按照仓库中的种子顺序种植，不包括四格作物，如果仓库为空则按照以上选择作物购买种植。(建议开启，仓库识别不够准确。)',
+            plant_card,
         )
         warehouse_tip.setWordWrap(True)
         warehouse_tip.setStyleSheet('color: #d97706;')

@@ -488,20 +488,39 @@ class TaskMainActionsMixin:
         self,
         refs: list[str],
         *,
-        anchor_threshold: float = 0.95,
+        anchor_threshold: float = 0.85,
         log_prefix: str = '自动施肥',
     ) -> list[tuple[str, tuple[int, int]]]:
-        """将地块编号映射为当前画面中心点坐标。"""
+        """将地块编号映射为当前画面中心点坐标。
+
+        锚点识别阈值默认 0.85；若两个锚点均未识别到，会尝试一次截图重试。
+        """
         if not refs:
             return []
-        self.ui.device.screenshot()
-        land_right_anchor = self.appear_land_right(offset=30, threshold=float(anchor_threshold), static=False)
-        land_left_anchor = self.ui.appear_location(
-            BTN_LAND_LEFT, offset=30, threshold=float(anchor_threshold), static=False
-        )
-        if land_right_anchor is None and land_left_anchor is None:
-            logger.warning('{}: 未识别到地块锚点 | refs={}', log_prefix, refs)
-            return []
+
+        def _try_collect():
+            self.ui.device.screenshot()
+            right_anchor = self.appear_land_right(offset=30, threshold=float(anchor_threshold), static=False)
+            left_anchor = self.ui.appear_location(
+                BTN_LAND_LEFT, offset=30, threshold=float(anchor_threshold), static=False
+            )
+            return right_anchor, left_anchor
+
+        land_right_anchor, land_left_anchor = _try_collect()
+        need_retry = land_right_anchor is None or land_left_anchor is None
+        if need_retry:
+            logger.warning(
+                '{}: 地块锚点识别不全（right={} left={}），先重置缩放再重试 | refs={}',
+                log_prefix,
+                land_right_anchor is not None,
+                land_left_anchor is not None,
+                refs,
+            )
+            self.align_view_by_background_tree(log_prefix=f'{log_prefix}: 重置缩放')
+            land_right_anchor, land_left_anchor = _try_collect()
+            if land_right_anchor is None and land_left_anchor is None:
+                logger.warning('{}: 重试后仍未识别到地块锚点 | refs={}', log_prefix, refs)
+                return []
 
         all_lands = get_lands_from_land_anchor(
             (int(land_right_anchor[0]), int(land_right_anchor[1])) if land_right_anchor is not None else None,
