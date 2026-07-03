@@ -395,11 +395,14 @@ class Device:
         self.click_record.clear()
 
     def app_is_running(self) -> bool:
-        """执行 `app is running` 相关处理。"""
+        """判断目标窗口是否仍然存在；透明隐藏/最小化/其他桌面均视为仍在运行。"""
         try:
             if not self.engine or not self.engine.window_manager:
                 return True
-            return bool(self.engine.window_manager.is_window_visible())
+            hwnd = self.engine.window_manager.get_window_handle()
+            if not hwnd:
+                return True
+            return bool(self.engine.window_manager._is_window_alive(int(hwnd)))
         except Exception:
             return True
 

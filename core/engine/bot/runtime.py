@@ -893,6 +893,9 @@ class BotRuntimeMixin:
     ) -> bool:
         """任务异常恢复：重启小程序窗口并等待重新进入主页面。
 
+        若重启前窗口处于隐藏（透明）状态，重启完成后会重新隐藏窗口，
+        保持用户之前的可见性偏好。
+
         Args:
             task_name: 当前任务名。
             attempt: 当前重启尝试次数（从 1 开始）。
@@ -904,10 +907,12 @@ class BotRuntimeMixin:
             `True` 表示重启并完成初始化；`False` 表示恢复失败。
         """
         window = self.window_manager.refresh_cached_window_info() or self._find_window_silent()
+        was_hidden = False
         if window is not None:
             hwnd = int(window.hwnd or 0)
             if hwnd > 0:
-                logger.warning(f'[{task_name}] 异常恢复: 正在关闭窗口 hwnd=0x{hwnd:X}')
+                was_hidden = self.window_manager.is_window_hidden()
+                logger.warning(f'[{task_name}] 异常恢复: 正在关闭窗口 hwnd=0x{hwnd:X} hidden={was_hidden}')
                 if not self._close_window_by_hwnd(hwnd):
                     logger.error(f'异常恢复失败：关闭窗口超时（{attempt}/{limit}）')
                     return False
@@ -940,6 +945,13 @@ class BotRuntimeMixin:
             logger.error(f'异常恢复失败：未能回到主页面（{attempt}/{limit}）')
             return False
         self._apply_wechat_mouse_guard(int(initialized_window.hwnd), getattr(initialized_window, 'process_name', None))
+
+        if was_hidden:
+            try:
+                self.window_manager.hide_window()
+                logger.info(f'[{task_name}] 异常恢复: 窗口重启前为隐藏状态，已重新隐藏')
+            except Exception as exc:
+                logger.warning(f'[{task_name}] 异常恢复: 重新隐藏窗口失败 | error={exc}')
 
         logger.info(f'[{task_name}] 异常恢复完成: {err_type} | 重启窗口 {attempt}/{limit}')
         logger.info(f'异常恢复完成：已重启窗口并回到主页面（{attempt}/{limit}）')

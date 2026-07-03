@@ -127,6 +127,8 @@ class Workspace:
     state: str = 'idle'
     last_preview: Image.Image | None = None
     start_in_progress: bool = False
+    cached_window_visible: bool | None = None
+    cached_hide_hwnd: int | None = None
 
 
 class _NameDialog(MessageBoxBase):
@@ -1226,8 +1228,18 @@ class MainWindow(FluentWindow):
             ws.btn_hide.setEnabled(False)
             ws.btn_hide.setText('隐藏')
             ws.btn_hide.setIcon(FluentIcon.HIDE.icon(color=QColor('#64748b')))
+            ws.cached_window_visible = None
+            ws.cached_hide_hwnd = None
             return
-        visible = ws.engine.is_window_visible()
+
+        # hwnd 未变且已缓存可见性时，复用缓存，避免高频调用 Win32 API。
+        if ws.cached_hide_hwnd == int(hwnd) and ws.cached_window_visible is not None:
+            visible = ws.cached_window_visible
+        else:
+            visible = ws.engine.is_window_visible()
+            ws.cached_window_visible = visible
+            ws.cached_hide_hwnd = int(hwnd)
+
         ws.btn_hide.setEnabled(True)
         if visible:
             ws.btn_hide.setText('隐藏')
@@ -1235,6 +1247,11 @@ class MainWindow(FluentWindow):
         else:
             ws.btn_hide.setText('显示')
             ws.btn_hide.setIcon(FluentIcon.VIEW.icon(color=QColor('#64748b')))
+
+    def _invalidate_hide_btn_cache(self, ws: Workspace) -> None:
+        """隐藏/显示按钮状态缓存失效入口。"""
+        ws.cached_window_visible = None
+        ws.cached_hide_hwnd = None
 
     def _on_hide(self, iid: str) -> None:
         ws = self._workspaces.get(iid)
@@ -1247,6 +1264,7 @@ class MainWindow(FluentWindow):
             )
         except Exception as exc:
             self._toast('warning', '窗口操作失败', str(exc or '切换窗口可见状态失败'), 2400)
+        self._invalidate_hide_btn_cache(ws)
         self._sync_hide_btn(ws)
 
     def _on_start(self, iid: str) -> None:

@@ -2,6 +2,7 @@
 
 import ctypes
 import ctypes.wintypes
+import ctypes.wintypes as wt
 import os
 from dataclasses import dataclass
 
@@ -802,15 +803,18 @@ class WindowManager:
 
     def clear_cached_window(self) -> None:
         """清除窗口缓存并重置隐藏状态标记。"""
+        logger.debug('clear_cached_window: _window_hidden={}', self._window_hidden)
         self._cached_window = None
         self._window_hidden = False
 
     def hide_window(self) -> bool:
         """将当前缓存的游戏窗口设置为全透明并移除任务栏图标，避免隐藏后无法截图。"""
         if not self._cached_window:
+            logger.warning('hide_window: 无缓存窗口')
             return False
         hwnd = int(self._cached_window.hwnd or 0)
         if hwnd <= 0:
+            logger.warning('hide_window: 缓存句柄无效')
             return False
         try:
             user32 = ctypes.windll.user32
@@ -843,14 +847,17 @@ class WindowManager:
             return True
         except Exception as exc:
             logger.warning(f'隐藏窗口失败: hwnd=0x{hwnd:X}, {exc}')
+            self._window_hidden = False
             return False
 
     def show_window(self) -> bool:
         """恢复当前缓存的游戏窗口的不透明度与任务栏图标；若在其他虚拟桌面则移回当前桌面。"""
         if not self._cached_window:
+            logger.warning('show_window: 无缓存窗口')
             return False
         hwnd = int(self._cached_window.hwnd or 0)
         if hwnd <= 0:
+            logger.warning('show_window: 缓存句柄无效')
             return False
         try:
             user32 = ctypes.windll.user32
@@ -882,7 +889,7 @@ class WindowManager:
                 self._hidden_exstyle = None
             else:
                 exstyle = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-                user32.SetWindowLongW(hwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED)
+                user32.SetWindowLongW(hwnd, GWL_EXSTYLE, exstyle & ~(WS_EX_LAYERED | WS_EX_TOOLWINDOW))
             user32.SetWindowPos(
                 hwnd,
                 0,
@@ -897,6 +904,7 @@ class WindowManager:
             return True
         except Exception as exc:
             logger.warning(f'显示窗口失败: hwnd=0x{hwnd:X}, {exc}')
+            self._window_hidden = False
             return False
 
     def get_capture_rect(self) -> tuple[int, int, int, int] | None:
@@ -1275,17 +1283,54 @@ class WindowManager:
             logger.warning(f'移动虚拟桌面失败: hwnd=0x{target_hwnd:X}, {type(exc).__name__}: {exc}')
             return False
 
-    def is_window_visible(self) -> bool:
-        """检查窗口是否可见（隐藏/最小化/其他虚拟桌面均视为不可见）。"""
-        if self._window_hidden:
+    @staticmethod
+    def _is_hwnd_transparent_hidden(hwnd: int) -> bool:
+        """通过 Layered Window 的当前 alpha 值判断窗口是否被透明隐藏。
+
+        该方法只读取窗口属性，不依赖 `WindowManager` 实例维护的状态，
+        因此可以跨实例（例如 GUI 主进程与 worker 子进程）正确识别隐藏状态。
+        """
+        target_hwnd = int(hwnd or 0)
+        if target_hwnd <= 0:
             return False
+        try:
+            user32 = ctypes.windll.user32
+            GWL_EXSTYLE = -20
+            WS_EX_LAYERED = 0x00080000
+            LWA_ALPHA = 0x2
+            exstyle = user32.GetWindowLongW(target_hwnd, GWL_EXSTYLE)
+            if not (int(exstyle) & WS_EX_LAYERED):
+                return False
+            cr_key = ctypes.wintypes.DWORD()
+            alpha = ctypes.wintypes.BYTE()
+            flags = ctypes.wintypes.DWORD()
+            if user32.GetLayeredWindowAttributes(
+                target_hwnd, ctypes.byref(cr_key), ctypes.byref(alpha), ctypes.byref(flags)
+            ):
+                return bool(flags.value & LWA_ALPHA and alpha.value == 0)
+            return False
+        except Exception:
+            return False
+
+    def is_window_hidden(self) -> bool:
+        """返回窗口是否处于透明隐藏状态（直接读取窗口 Layered alpha）。"""
+        if not self._cached_window:
+            return False
+        hwnd = int(self._cached_window.hwnd or 0)
+        if hwnd <= 0:
+            return False
+        return self._is_hwnd_transparent_hidden(hwnd)
+
+    def is_window_visible(self) -> bool:
+        """检查窗口是否可见（透明隐藏/最小化/其他虚拟桌面均视为不可见）。"""
         if not self._cached_window:
             return False
         hwnd = int(self._cached_window.hwnd or 0)
         if hwnd <= 0:
             return False
         try:
-            if not ctypes.windll.user32.IsWindowVisible(hwnd):
+            visible = bool(ctypes.windll.user32.IsWindowVisible(hwnd))
+            if not visible:
                 return False
         except Exception:
             return False
@@ -1296,6 +1341,9 @@ class WindowManager:
                 return False
         except Exception:
             pass
+        # 通过 Layered Window alpha 判断是否为透明隐藏状态。
+        if self._is_hwnd_transparent_hidden(hwnd):
+            return False
         return True
 
     def refresh_window_info(
