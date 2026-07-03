@@ -6,10 +6,13 @@ import os
 import time
 from dataclasses import dataclass
 
+import cv2
+import numpy as np
 import pygetwindow as gw
 from loguru import logger
 
 from utils.app_paths import ensure_user_configs, load_config_json_object, resolve_config_file
+from utils.template_paths import normalize_template_platform, project_root
 
 
 @dataclass
@@ -1096,16 +1099,34 @@ class WindowManager:
                         logger.warning(
                             f'[窗口调整] 微信窗口调整失败且外框仍={current_outer[0]}x{current_outer[1]}，尝试关闭侧边栏后重试'
                         )
-                        self._try_close_wechat_sidebar(hwnd, int(current_outer[0]), int(current_outer[1]))
-                        time.sleep(0.3)
-                        ok, resize_msg = self._set_window_outer_size_with_retry(
-                            hwnd=hwnd,
-                            x=pos_x,
-                            y=pos_y,
-                            target_outer_width=target_outer_w,
-                            target_outer_height=target_outer_h,
-                            max_rounds=6,
-                        )
+                        closed = self._try_close_wechat_sidebar(hwnd, int(current_outer[0]), int(current_outer[1]))
+                        if closed:
+                            time.sleep(0.3)
+                            ok, resize_msg = self._set_window_outer_size_with_retry(
+                                hwnd=hwnd,
+                                x=pos_x,
+                                y=pos_y,
+                                target_outer_width=target_outer_w,
+                                target_outer_height=target_outer_h,
+                                max_rounds=6,
+                            )
+                            # 若仍未成功，再尝试一次识别并点击收起侧边栏。
+                            if not ok:
+                                current_outer2 = self._get_window_outer_size(hwnd)
+                                if current_outer2 and int(current_outer2[0]) > 600:
+                                    logger.warning(
+                                        f'[窗口调整] 首次关闭侧边栏后仍={current_outer2[0]}x{current_outer2[1]}，再次尝试关闭侧边栏'
+                                    )
+                                    self._try_close_wechat_sidebar(hwnd, int(current_outer2[0]), int(current_outer2[1]))
+                                    time.sleep(0.3)
+                                    ok, resize_msg = self._set_window_outer_size_with_retry(
+                                        hwnd=hwnd,
+                                        x=pos_x,
+                                        y=pos_y,
+                                        target_outer_width=target_outer_w,
+                                        target_outer_height=target_outer_h,
+                                        max_rounds=6,
+                                    )
                 if not ok:
                     logger.error(f'调整窗口大小失败: {resize_msg}')
                     return False
@@ -1197,32 +1218,66 @@ class WindowManager:
             logger.error(f'调整窗口大小失败: {e}')
             return False
 
-    @staticmethod
-    def _try_close_wechat_sidebar(hwnd: int, outer_w: int, outer_h: int) -> bool:
-        """微信窗口若默认展开侧边栏，尝试点击非客户区关闭按钮。
+    def _try_close_wechat_sidebar(self, hwnd: int, outer_w: int, outer_h: int) -> bool:
+        """微信窗口若默认展开侧边栏，尝试识别并点击收起按钮。
 
-        点击坐标固定为窗口内 (30, 20) 附近（相对窗口左上角），该位置通常对应
-        微信端侧边栏顶部的“关闭/收起”按钮。
+        通过整窗截图匹配BTN_WECHAT_COLLAPSE模板，命中后在整窗坐标系下
+        发送后台鼠标点击消息。
         """
         target_hwnd = int(hwnd or 0)
         if target_hwnd <= 0:
             return False
         try:
-            rect = WindowManager._get_window_rect(target_hwnd)
-            if not rect:
+            from core.platform.screen_capture import ScreenCapture
+
+            screen_capture = ScreenCapture()
+            full_image = screen_capture.capture_window_print_full(target_hwnd)
+            if full_image is None:
+                logger.warning('[窗口调整] 微信关闭侧边栏: 整窗截图失败')
                 return False
-            left, top, _, _ = rect
-            abs_x = int(left + 30)
-            abs_y = int(top + 20)
+
+            template_path = (
+                project_root() / 'templates' / normalize_template_platform('wechat') / 'btn' / 'btn_wechat_collapse.png'
+            )
+            if not template_path.exists():
+                logger.warning(f'[窗口调整] 微信关闭侧边栏: 模板不存在 {template_path}')
+                return False
+
+            template_bgr = cv2.imread(str(template_path), cv2.IMREAD_COLOR)
+            if template_bgr is None:
+                logger.warning(f'[窗口调整] 微信关闭侧边栏: 无法读取模板 {template_path}')
+                return False
+
+            img_bgr = cv2.cvtColor(np.array(full_image), cv2.COLOR_RGB2BGR)
+            img_h, img_w = img_bgr.shape[:2]
+            tpl_h, tpl_w = template_bgr.shape[:2]
+
+            # 限制在左上角区域搜索，避免误命中。
+            roi = img_bgr[0 : min(img_h, 120), 0 : min(img_w, 120)]
+            if roi.size == 0:
+                return False
+
+            result = cv2.matchTemplate(roi, template_bgr, cv2.TM_CCOEFF_NORMED)
+            _, max_val, _, max_loc = cv2.minMaxLoc(result)
+            threshold = 0.8
+            if max_val < threshold:
+                logger.debug(f'[窗口调整] 微信关闭侧边栏: 未识别到收起按钮，最佳相似度={max_val:.3f}')
+                return False
+
+            click_x = max_loc[0] + tpl_w // 2
+            click_y = max_loc[1] + tpl_h // 2
             user32 = ctypes.windll.user32
             WM_LBUTTONDOWN = 0x0201
             WM_LBUTTONUP = 0x0202
             MK_LBUTTON = 0x0001
-            lparam = ((int(abs_y - top) & 0xFFFF) << 16) | (int(abs_x - left) & 0xFFFF)
+            lparam = ((int(click_y) & 0xFFFF) << 16) | (int(click_x) & 0xFFFF)
             user32.SendMessageW(target_hwnd, WM_LBUTTONDOWN, MK_LBUTTON, lparam)
             time.sleep(0.05)
             user32.SendMessageW(target_hwnd, WM_LBUTTONUP, 0, lparam)
-            logger.info(f'微信窗口外框={outer_w}x{outer_h}，已尝试点击非客户区 (30,20) 关闭侧边栏')
+            logger.info(
+                f'微信窗口外框={outer_w}x{outer_h}，已识别并点击收起侧边栏，'
+                f'相似度={max_val:.3f}，坐标=({click_x},{click_y})'
+            )
             return True
         except Exception as exc:
             logger.warning(f'微信窗口尝试关闭侧边栏失败: {exc}')
