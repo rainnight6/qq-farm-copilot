@@ -58,7 +58,7 @@ class TaskGift(TaskBase):
         """领取 QQSVIP 礼包。"""
         logger.info('领取流程: 检查QQSVIP礼包领取')
         self.ui.device.screenshot()
-        if not self.ui.appear(BTN_QQSVIP, offset=30):
+        if not self.ui.appear(BTN_QQSVIP, offset=(-20, -20, 160, 20)):
             logger.info('领取流程: 未找到QQSVIP礼包入口')
             return
 
@@ -66,11 +66,11 @@ class TaskGift(TaskBase):
             self.ui.device.screenshot()
             if self.ui.handle_click_close():
                 continue
-            if self.ui.appear_then_click(BTN_QQSVIP, offset=30, threshold=0.85, interval=1):
+            if self.ui.appear_then_click(BTN_QQSVIP, offset=(-20, -20, 160, 20), threshold=0.85, interval=1):
                 continue
             if self.ui.appear_then_click(BTN_CLAIM, offset=30, interval=1, static=False):
                 continue
-            if not self.ui.appear(BTN_QQSVIP, threshold=0.85, offset=30):
+            if not self.ui.appear(BTN_QQSVIP, threshold=0.85, offset=(-20, -20, 160, 20)):
                 break
         logger.info('领取流程: QQSVIP礼包流程结束')
         return
