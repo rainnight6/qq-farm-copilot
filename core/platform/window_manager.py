@@ -2,8 +2,8 @@
 
 import ctypes
 import ctypes.wintypes
-import ctypes.wintypes as wt
 import os
+import time
 from dataclasses import dataclass
 
 import pygetwindow as gw
@@ -1089,8 +1089,26 @@ class WindowManager:
                 max_rounds=6,
             )
             if not ok:
-                logger.error(f'调整窗口大小失败: {resize_msg}')
-                return False
+                # 微信窗口若因侧边栏展开导致无法缩到目标尺寸，尝试点击关闭侧边栏后重试一次。
+                if is_wechat:
+                    current_outer = self._get_window_outer_size(hwnd)
+                    if current_outer and int(current_outer[0]) > 600:
+                        logger.warning(
+                            f'[窗口调整] 微信窗口调整失败且外框仍={current_outer[0]}x{current_outer[1]}，尝试关闭侧边栏后重试'
+                        )
+                        self._try_close_wechat_sidebar(hwnd, int(current_outer[0]), int(current_outer[1]))
+                        time.sleep(0.3)
+                        ok, resize_msg = self._set_window_outer_size_with_retry(
+                            hwnd=hwnd,
+                            x=pos_x,
+                            y=pos_y,
+                            target_outer_width=target_outer_w,
+                            target_outer_height=target_outer_h,
+                            max_rounds=6,
+                        )
+                if not ok:
+                    logger.error(f'调整窗口大小失败: {resize_msg}')
+                    return False
 
             # 5) 回读最终尺寸，计算客户区/外框误差并更新缓存。
             final_rect = self._get_window_rect(hwnd)
@@ -1108,6 +1126,7 @@ class WindowManager:
 
             actual_outer_w = int(self._cached_window.width)
             actual_outer_h = int(self._cached_window.height)
+
             actual_client_text = f'{final_client[0]}x{final_client[1]}' if final_client else 'unknown'
             outer_err_w = int(target_outer_w - actual_outer_w)
             outer_err_h = int(target_outer_h - actual_outer_h)
@@ -1176,6 +1195,37 @@ class WindowManager:
             return True
         except Exception as e:
             logger.error(f'调整窗口大小失败: {e}')
+            return False
+
+    @staticmethod
+    def _try_close_wechat_sidebar(hwnd: int, outer_w: int, outer_h: int) -> bool:
+        """微信窗口若默认展开侧边栏，尝试点击非客户区关闭按钮。
+
+        点击坐标固定为窗口内 (30, 20) 附近（相对窗口左上角），该位置通常对应
+        微信端侧边栏顶部的“关闭/收起”按钮。
+        """
+        target_hwnd = int(hwnd or 0)
+        if target_hwnd <= 0:
+            return False
+        try:
+            rect = WindowManager._get_window_rect(target_hwnd)
+            if not rect:
+                return False
+            left, top, _, _ = rect
+            abs_x = int(left + 30)
+            abs_y = int(top + 20)
+            user32 = ctypes.windll.user32
+            WM_LBUTTONDOWN = 0x0201
+            WM_LBUTTONUP = 0x0202
+            MK_LBUTTON = 0x0001
+            lparam = ((int(abs_y - top) & 0xFFFF) << 16) | (int(abs_x - left) & 0xFFFF)
+            user32.SendMessageW(target_hwnd, WM_LBUTTONDOWN, MK_LBUTTON, lparam)
+            time.sleep(0.05)
+            user32.SendMessageW(target_hwnd, WM_LBUTTONUP, 0, lparam)
+            logger.info(f'微信窗口外框={outer_w}x{outer_h}，已尝试点击非客户区 (30,20) 关闭侧边栏')
+            return True
+        except Exception as exc:
+            logger.warning(f'微信窗口尝试关闭侧边栏失败: {exc}')
             return False
 
     @classmethod
