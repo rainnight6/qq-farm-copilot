@@ -107,7 +107,9 @@ class ModuleBase:
                 int(button._button[2] + dx),
                 int(button._button[3] + dy),
             )
-            return True, area, float(similarity)
+            # 静态匹配仅用于确认按钮仍在设计位置附近，不污染 _button_offset，
+            # 确保后续基于 button.location 的点击落在原始设计坐标上。
+            return True, None, float(similarity)
 
         # 动态模式（全图检索）下直接使用匹配左上角与按钮原始尺寸还原区域。
         w, h = best_size

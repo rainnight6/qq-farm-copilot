@@ -190,6 +190,10 @@ class UI(Handler):
                     continue
                 self._button_interval_hit(page_switch_key)
                 button = page.links[page.parent]
+                # 页面跳转按钮按设计位于固定坐标；清理可能残留的动态偏移，
+                # 避免其它任务以 static=False 匹配后污染 _button_offset，
+                # 导致点击落点偏离实际按钮。
+                button._button_offset = None
                 logger.info(f'页面切换: {page.cn_name} -> {page.parent.cn_name}')
                 if self.device.click_button(button):
                     clicked = True
