@@ -173,6 +173,7 @@ class TaskMainActionsMixin:
             if self.ui.appear_then_click(BTN_MERCHANT_CONFIRM, offset=30, interval=1, static=False, threshold=0.8):
                 confirmed = True
                 logger.info('神秘商人: 已点击购买')
+                self.engine._record_stat(ActionType.MERCHANT)
                 self.ui.device.sleep(0.5)
                 break
             if confirm_timer.reached():

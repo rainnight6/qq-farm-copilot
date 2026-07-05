@@ -15,6 +15,7 @@ class ActionType(str, Enum):
     REMOVE = 'remove'
     SELL = 'sell'
     STEAL = 'steal'
+    MERCHANT = 'merchant'
     CLOSE_POPUP = 'close_popup'
     NAVIGATE = 'navigate'
 

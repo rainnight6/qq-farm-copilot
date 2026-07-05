@@ -9,6 +9,17 @@ from pathlib import Path
 from utils.app_paths import instance_dir
 
 
+# 统计列顺序：新增 merchant 列放在 friend_help 之后，保持向后兼容旧数据读取。
+DAILY_ACTION_STAT_FIELDS = [
+    'date',
+    'harvest',
+    'operation',
+    'friend_steal',
+    'friend_help',
+    'merchant',
+]
+
+
 def _csv_path(instance_id: str) -> Path:
     p = instance_dir(instance_id) / 'stats'
     p.mkdir(parents=True, exist_ok=True)
@@ -29,10 +40,11 @@ def record_daily_action(
     operation: int = 0,
     friend_steal: int = 0,
     friend_help: int = 0,
+    merchant: int = 0,
 ) -> None:
     today = date.today().isoformat()
     path = _csv_path(instance_id)
-    rows: dict[str, tuple[int, int, int, int]] = {}
+    rows: dict[str, tuple[int, int, int, int, int]] = {}
 
     if path.exists():
         with path.open(newline='', encoding='utf-8') as f:
@@ -45,23 +57,28 @@ def record_daily_action(
                     _safe_int(row.get('operation'), 0),
                     _safe_int(row.get('friend_steal'), 0),
                     _safe_int(row.get('friend_help'), 0),
+                    _safe_int(row.get('merchant'), 0),
                 )
 
-    old_harvest, old_operation, old_friend_steal, old_friend_help = rows.get(today, (0, 0, 0, 0))
+    old_harvest, old_operation, old_friend_steal, old_friend_help, old_merchant = rows.get(today, (0, 0, 0, 0, 0))
     rows[today] = (
         old_harvest + max(0, int(harvest)),
         old_operation + max(0, int(operation)),
         old_friend_steal + max(0, int(friend_steal)),
         old_friend_help + max(0, int(friend_help)),
+        old_merchant + max(0, int(merchant)),
     )
 
     with path.open('w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=['date', 'harvest', 'operation', 'friend_steal', 'friend_help'],
-        )
+        writer = csv.DictWriter(f, fieldnames=DAILY_ACTION_STAT_FIELDS)
         writer.writeheader()
-        for d, (harvest_count, operation_count, friend_steal_count, friend_help_count) in sorted(rows.items()):
+        for d, (
+            harvest_count,
+            operation_count,
+            friend_steal_count,
+            friend_help_count,
+            merchant_count,
+        ) in sorted(rows.items()):
             writer.writerow(
                 {
                     'date': d,
@@ -69,13 +86,14 @@ def record_daily_action(
                     'operation': operation_count,
                     'friend_steal': friend_steal_count,
                     'friend_help': friend_help_count,
+                    'merchant': merchant_count,
                 }
             )
 
 
-def load_daily_actions(instance_id: str, days: int = 30) -> list[tuple[str, int, int, int, int]]:
+def load_daily_actions(instance_id: str, days: int = 30) -> list[tuple[str, int, int, int, int, int]]:
     path = _csv_path(instance_id)
-    rows: dict[str, tuple[int, int, int, int]] = {}
+    rows: dict[str, tuple[int, int, int, int, int]] = {}
     if path.exists():
         with path.open(newline='', encoding='utf-8') as f:
             for row in csv.DictReader(f):
@@ -87,12 +105,15 @@ def load_daily_actions(instance_id: str, days: int = 30) -> list[tuple[str, int,
                     _safe_int(row.get('operation'), 0),
                     _safe_int(row.get('friend_steal'), 0),
                     _safe_int(row.get('friend_help'), 0),
+                    _safe_int(row.get('merchant'), 0),
                 )
 
     today = date.today()
-    out: list[tuple[str, int, int, int, int]] = []
+    out: list[tuple[str, int, int, int, int, int]] = []
     for i in range(days):
         current_day = (today - timedelta(days=days - 1 - i)).isoformat()
-        harvest_count, operation_count, friend_steal_count, friend_help_count = rows.get(current_day, (0, 0, 0, 0))
-        out.append((current_day, harvest_count, operation_count, friend_steal_count, friend_help_count))
+        harvest_count, operation_count, friend_steal_count, friend_help_count, merchant_count = rows.get(
+            current_day, (0, 0, 0, 0, 0)
+        )
+        out.append((current_day, harvest_count, operation_count, friend_steal_count, friend_help_count, merchant_count))
     return out

@@ -80,6 +80,7 @@ class BotVisionMixin:
             ActionType.PLANT: 'plant',
             ActionType.FARMING: 'farming',
             ActionType.FERTILIZE: 'fertilize',
+            ActionType.MERCHANT: 'merchant',
             ActionType.STEAL: 'steal',
             ActionType.SELL: 'sell',
         }
@@ -87,10 +88,12 @@ class BotVisionMixin:
         if stat_key:
             self.scheduler.record_action(stat_key)
             harvest_count = 1 if action_type == ActionType.HARVEST else 0
+            merchant_count = 1 if action_type == ActionType.MERCHANT else 0
             record_daily_action(
                 self._resolve_instance_id(),
                 harvest=harvest_count,
                 operation=1,
+                merchant=merchant_count,
             )
 
     def _record_friend_daily_stat(self, stat_type: str, count: int = 1) -> None:

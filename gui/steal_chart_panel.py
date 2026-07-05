@@ -400,12 +400,12 @@ class StealChartPanel(QWidget):
             action_data = load_daily_actions(self._instance_id, days)
             day_map = {d: (coin, bean) for d, coin, bean in day_data}
             action_map = {
-                d: (harvest, operation, friend_steal, friend_help)
-                for d, harvest, operation, friend_steal, friend_help in action_data
+                d: (harvest, operation, friend_steal, friend_help, merchant)
+                for d, harvest, operation, friend_steal, friend_help, merchant in action_data
             }
 
             mondays = [first_monday + timedelta(weeks=i) for i in range(self._week_window)]
-            data: list[tuple[str, int, int, int, int, int, int]] = []
+            data: list[tuple[str, int, int, int, int, int, int, int]] = []
             for monday in mondays:
                 week_coin_sum = 0
                 week_bean_sum = 0
@@ -419,8 +419,8 @@ class StealChartPanel(QWidget):
                         break
                     day_key = current_day.isoformat()
                     day_coin, day_bean = day_map.get(day_key, (0, 0))
-                    day_harvest, day_operation, day_friend_steal, day_friend_help = action_map.get(
-                        day_key, (0, 0, 0, 0)
+                    day_harvest, day_operation, day_friend_steal, day_friend_help, _merchant = action_map.get(
+                        day_key, (0, 0, 0, 0, 0)
                     )
                     week_coin_sum += day_coin
                     week_bean_sum += day_bean
@@ -443,19 +443,21 @@ class StealChartPanel(QWidget):
             day_data = load_stats(self._instance_id, self._day_window)
             action_data = load_daily_actions(self._instance_id, self._day_window)
             action_map = {
-                d: (harvest, operation, friend_steal, friend_help)
-                for d, harvest, operation, friend_steal, friend_help in action_data
+                d: (harvest, operation, friend_steal, friend_help, merchant)
+                for d, harvest, operation, friend_steal, friend_help, merchant in action_data
             }
             data = []
             for d, coin, bean in day_data:
-                harvest, operation, friend_steal, friend_help = action_map.get(d, (0, 0, 0, 0))
-                data.append((d, coin, bean, harvest, operation, friend_steal, friend_help))
+                harvest, operation, friend_steal, friend_help, merchant = action_map.get(d, (0, 0, 0, 0, 0))
+                data.append((d, coin, bean, harvest, operation, friend_steal, friend_help, merchant))
 
-        self._coin_chart.set_data([(d, coin) for d, coin, _, _, _, _, _ in data])
-        self._bean_chart.set_data([(d, bean) for d, _, bean, _, _, _, _ in data])
-        self._harvest_operation_chart.set_data([(d, harvest, operation) for d, _, _, harvest, operation, _, _ in data])
+        self._coin_chart.set_data([(d, coin) for d, coin, _, _, _, _, _, _ in data])
+        self._bean_chart.set_data([(d, bean) for d, _, bean, _, _, _, _, _ in data])
+        self._harvest_operation_chart.set_data(
+            [(d, harvest, operation) for d, _, _, harvest, operation, _, _, _ in data]
+        )
         self._friend_chart.set_data(
-            [(d, friend_steal, friend_help) for d, _, _, _, _, friend_steal, friend_help in data]
+            [(d, friend_steal, friend_help) for d, _, _, _, _, friend_steal, friend_help, _ in data]
         )
 
     def showEvent(self, event):

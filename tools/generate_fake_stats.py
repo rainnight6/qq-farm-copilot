@@ -39,6 +39,8 @@ def _build_rows(days: int, seed: int) -> tuple[list[dict[str, int | str]], list[
         friend_steal = int(max(0, rng.gauss(22, 10) * active_scale))
         friend_help = int(max(0, rng.gauss(28, 12) * active_scale))
 
+        merchant = int(max(0, rng.gauss(3, 2) * active_scale))
+
         coin = int(max(0, friend_steal * rng.uniform(900, 2800) + rng.uniform(1500, 12000)))
         bean = int(max(0, friend_steal * rng.uniform(2, 11) + rng.uniform(5, 70)))
 
@@ -57,6 +59,7 @@ def _build_rows(days: int, seed: int) -> tuple[list[dict[str, int | str]], list[
                 'operation': operation,
                 'friend_steal': friend_steal,
                 'friend_help': friend_help,
+                'merchant': merchant,
             }
         )
     return steal_rows, action_rows
@@ -91,7 +94,7 @@ def main() -> int:
     )
     _write_csv(
         action_csv,
-        fieldnames=['date', 'harvest', 'operation', 'friend_steal', 'friend_help'],
+        fieldnames=['date', 'harvest', 'operation', 'friend_steal', 'friend_help', 'merchant'],
         rows=action_rows,
     )
 
