@@ -22,6 +22,7 @@ from core.ui.assets import ASSET_NAME_TO_CONST
 from core.ui.page import (
     GOTO_MAIN,
     page_main,
+    page_unknown,
 )
 from core.ui.ui import UI
 from models.config import AppConfig, PlantMode, RunMode, resolve_effective_run_mode
@@ -1076,7 +1077,15 @@ class BotRuntimeMixin:
                 handled = False
                 if self.ui.ui_additional():
                     handled = True
-                if self.ui._click_goto_main(interval=1):
+
+                if current_page == page_unknown:
+                    # 未知页面使用固定坐标回主。
+                    if self.ui._click_goto_main(interval=1):
+                        handled = True
+                else:
+                    # 已知非主页面使用页面链路回主
+                    # 避免固定坐标在特殊页面失效。
+                    self.ui.ui_ensure(page_main, confirm_wait=1)
                     handled = True
 
                 if not handled and current_page != page_main:
