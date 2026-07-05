@@ -175,10 +175,14 @@
 - `main` 内部动作顺序（按 feature 开关）：
 1. `harvest`
 2. `farming`
-3. `expand`
-4. `plant`（前置等级 OCR）
-5. `fertilize`
-6. `upgrade`
+3. `merchant`
+4. `expand`
+5. `plant`（前置等级 OCR）
+6. `fertilize`
+7. `upgrade`
+
+- `main.features` 神秘商人字段：
+  - `auto_merchant: bool`（默认 `false`；出现神秘商人时自动点击购买）
 
 - `main.features` 施肥相关字段：
   - `auto_fertilize: bool`（默认 `false`）

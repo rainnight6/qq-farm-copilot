@@ -35,6 +35,7 @@ class TaskViewBase:
 @dataclass(slots=True)
 class MainFeatures:
     auto_harvest: bool = True
+    auto_merchant: bool = False
     auto_plant: bool = False
     auto_farming: bool = True
     auto_expand: bool = True
@@ -62,7 +63,7 @@ class FriendFeatures:
 
 @dataclass(slots=True)
 class GrassFeatures:
-    skip_probability: float = 0.0
+    skip_probability: float = 0.2
 
 
 @dataclass(slots=True)

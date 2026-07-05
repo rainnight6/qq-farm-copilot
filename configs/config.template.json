@@ -30,6 +30,7 @@
       "failure_interval_seconds": 30,
       "features": {
         "auto_harvest": true,
+        "auto_merchant": false,
         "auto_plant": false,
         "auto_farming": true,
         "auto_expand": true,

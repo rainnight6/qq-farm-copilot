@@ -14,7 +14,6 @@ from core.ui.page import GOTO_MAIN, page_main, page_mall
 from models.farm_state import ActionType
 from utils.land_grid import get_lands_from_land_anchor
 from utils.ocr_utils import OCRItem
-from utils.shop_item_ocr import ShopItemOCR
 
 if TYPE_CHECKING:
     from core.engine.bot.local_engine import LocalBotEngine
@@ -144,6 +143,57 @@ class TaskMainActionsMixin:
                     return '一键维护'
             else:
                 confirm_timer.clear()
+
+    def _run_feature_merchant(self) -> None:
+        """神秘商人：主界面出现商人图标时点击购买。"""
+        logger.info('神秘商人: 开始')
+        self.ui.device.screenshot()
+        if not self.ui.appear(BTN_MERCHANT, offset=30, static=False, threshold=0.8):
+            logger.info('神秘商人: 当前未出现')
+            return
+
+        if not self.ui.appear_then_click(BTN_MERCHANT, offset=30, interval=1, static=False, threshold=0.8):
+            logger.warning('神秘商人: 点击图标失败')
+            return
+
+        popup_timer = Timer(3.0).start()
+        while 1:
+            self.ui.device.screenshot()
+            if self.ui.appear(BTN_MERCHANT_CONFIRM, offset=30, static=False, threshold=0.8):
+                break
+            if popup_timer.reached():
+                logger.warning('神秘商人: 弹窗加载超时')
+                return
+            self.ui.device.sleep(0.2)
+
+        confirm_timer = Timer(3.0).start()
+        confirmed = False
+        while 1:
+            self.ui.device.screenshot()
+            if self.ui.appear_then_click(BTN_MERCHANT_CONFIRM, offset=30, interval=1, static=False, threshold=0.8):
+                confirmed = True
+                logger.info('神秘商人: 已点击购买')
+                self.ui.device.sleep(0.5)
+                break
+            if confirm_timer.reached():
+                logger.warning('神秘商人: 购买确认失败')
+                break
+            self.ui.device.sleep(0.2)
+
+        if not confirmed:
+            return
+
+        close_timer = Timer(3.0).start()
+        while 1:
+            self.ui.device.screenshot()
+            if not self.ui.appear(BTN_MERCHANT_CONFIRM, offset=30, static=False, threshold=0.8):
+                logger.info('神秘商人: 弹窗已关闭')
+                break
+            if close_timer.reached():
+                logger.warning('神秘商人: 弹窗关闭超时，尝试返回主页')
+                self.ui.device.click_button(GOTO_MAIN)
+                break
+            self.ui.device.sleep(0.2)
 
     def _run_feature_fertilize(self) -> str | None:
         """自动施肥：按土地巡查数据筛选地块并执行施肥。"""

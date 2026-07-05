@@ -275,6 +275,10 @@ class TaskMain(
             enable_farming=features.auto_farming,
         )
 
+        # 神秘商人
+        if features.auto_merchant:
+            self._run_feature_merchant()
+
         # 自动扩建
         if features.auto_expand:
             self._run_feature_expand()

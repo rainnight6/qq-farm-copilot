@@ -45,6 +45,7 @@
 - [x] 自动种草
 - [x] 游戏窗口隐藏
 - [x] 微信鼠标防占用
+- [x] 神秘商人
 
 ## 当前实现概览
 
@@ -61,7 +62,7 @@
 
 当前内置任务（通过 `_run_task_*` 自动发现）：
 
-- `main`：农场主流程（收获维护、播种、施肥、扩建、升级）
+- `main`：农场主流程（收获维护、神秘商人、播种、施肥、扩建、升级）
 - `friend`：独立好友任务（支持 `features.blacklist`、`features.steal_stats`、`features.help_only_guard_dog`，以及偷菜/帮忙各自的 `enabled_time_range` 与 `limit_count`；主界面仅显示黑名单条目数，详情弹窗可维护名单）
 - `grass`：自动种草任务（默认关闭；依次访问好友农场，先帮忙一次，点击 `1-1` 地块打开弹窗后拖拽草种到全部地块；无 `features` 分项开关）
 - `share`：独立分享任务（仅支持微信平台，通常配合每日触发）
@@ -191,6 +192,7 @@ python main.py
     "failure_interval_seconds": 30,
     "features": {
       "auto_harvest": true,
+      "auto_merchant": false,
       "auto_plant": false,
       "auto_expand": false,
       "auto_upgrade": false,

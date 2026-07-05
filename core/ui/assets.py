@@ -52,6 +52,8 @@ BTN_MALL_FREE = Button(area={'qq': (122, 539, 183, 569), 'wechat': (123, 536, 18
 BTN_MALL_FREE_DONE = Button(area={'qq': (121, 539, 183, 570), 'wechat': (123, 535, 183, 568)}, color={'qq': (208, 176, 139), 'wechat': (210, 182, 149)}, button={'qq': (121, 539, 183, 570), 'wechat': (123, 535, 183, 568)}, file={'qq': 'templates/qq/btn/btn_mall_free_done.png', 'wechat': 'templates/wechat/btn/btn_mall_free_done.png'}, name='btn_mall_free_done')
 BTN_MATURE = Button(area={'qq': (261, 457, 278, 479), 'wechat': (261, 457, 278, 479)}, color={'qq': (201, 181, 78), 'wechat': (201, 181, 78)}, button={'qq': (261, 457, 278, 479), 'wechat': (261, 457, 278, 479)}, file={'qq': 'templates/qq/btn/btn_mature.png', 'wechat': 'templates/qq/btn/btn_mature.png'}, name='btn_mature')
 BTN_MENU = Button(area={'qq': (0, 0, 26, 26), 'wechat': (0, 0, 26, 26)}, color={'qq': (249, 249, 249), 'wechat': (249, 249, 249)}, button={'qq': (0, 0, 26, 26), 'wechat': (0, 0, 26, 26)}, file={'qq': 'templates/qq/btn/btn_menu.png', 'wechat': 'templates/qq/btn/btn_menu.png'}, name='btn_menu')
+BTN_MERCHANT = Button(area={'qq': (104, 669, 134, 719), 'wechat': (104, 669, 134, 719)}, color={'qq': (211, 176, 128), 'wechat': (211, 176, 128)}, button={'qq': (104, 669, 134, 719), 'wechat': (104, 669, 134, 719)}, file={'qq': 'templates/qq/btn/btn_merchant.png', 'wechat': 'templates/qq/btn/btn_merchant.png'}, name='btn_merchant')
+BTN_MERCHANT_CONFIRM = Button(area={'qq': (362, 817, 412, 842), 'wechat': (362, 817, 412, 842)}, color={'qq': (211, 176, 154), 'wechat': (211, 176, 154)}, button={'qq': (362, 817, 412, 842), 'wechat': (362, 817, 412, 842)}, file={'qq': 'templates/qq/btn/btn_merchant_confirm.png', 'wechat': 'templates/qq/btn/btn_merchant_confirm.png'}, name='btn_merchant_confirm')
 BTN_MONTHLY_CARD = Button(area={'qq': (213, 893, 333, 922), 'wechat': (213, 893, 333, 922)}, color={'qq': (182, 139, 102), 'wechat': (182, 139, 102)}, button={'qq': (213, 893, 333, 922), 'wechat': (213, 893, 333, 922)}, file={'qq': 'templates/qq/btn/btn_monthly_card.png', 'wechat': 'templates/qq/btn/btn_monthly_card.png'}, name='btn_monthly_card')
 BTN_MONTHLY_CARD_ACCEPT = Button(area={'qq': (246, 730, 298, 757), 'wechat': (246, 730, 298, 757)}, color={'qq': (187, 204, 104), 'wechat': (187, 204, 104)}, button={'qq': (246, 730, 298, 757), 'wechat': (246, 730, 298, 757)}, file={'qq': 'templates/qq/btn/btn_monthly_card_accept.png', 'wechat': 'templates/qq/btn/btn_monthly_card_accept.png'}, name='btn_monthly_card_accept')
 BTN_MONTHLY_CARD_END = Button(area={'qq': (223, 731, 320, 755), 'wechat': (223, 731, 320, 755)}, color={'qq': (181, 200, 89), 'wechat': (181, 200, 89)}, button={'qq': (223, 731, 320, 755), 'wechat': (223, 731, 320, 755)}, file={'qq': 'templates/qq/btn/btn_monthly_card_end.png', 'wechat': 'templates/qq/btn/btn_monthly_card_end.png'}, name='btn_monthly_card_end')
@@ -180,6 +182,8 @@ ASSET_NAME_TO_CONST = {
     'btn_mall_free_done': BTN_MALL_FREE_DONE,
     'btn_mature': BTN_MATURE,
     'btn_menu': BTN_MENU,
+    'btn_merchant': BTN_MERCHANT,
+    'btn_merchant_confirm': BTN_MERCHANT_CONFIRM,
     'btn_monthly_card': BTN_MONTHLY_CARD,
     'btn_monthly_card_accept': BTN_MONTHLY_CARD_ACCEPT,
     'btn_monthly_card_end': BTN_MONTHLY_CARD_END,
