@@ -35,11 +35,15 @@ def _build_rows(days: int, seed: int) -> tuple[list[dict[str, int | str]], list[
         active_scale = rng.uniform(0.75, 1.35) * weekend_boost
 
         harvest = int(max(5, rng.gauss(85, 30) * active_scale))
-        operation = int(max(harvest + 10, harvest + rng.gauss(55, 18) * active_scale))
         friend_steal = int(max(0, rng.gauss(22, 10) * active_scale))
         friend_help = int(max(0, rng.gauss(28, 12) * active_scale))
 
+        plant = int(max(0, rng.gauss(40, 15) * active_scale))
+        farming = int(max(0, rng.gauss(25, 10) * active_scale))
+        fertilize = int(max(0, rng.gauss(12, 6) * active_scale))
         merchant = int(max(0, rng.gauss(3, 2) * active_scale))
+        sell = int(max(0, rng.gauss(8, 4) * active_scale))
+        operation = plant + farming + fertilize + merchant + sell
 
         coin = int(max(0, friend_steal * rng.uniform(900, 2800) + rng.uniform(1500, 12000)))
         bean = int(max(0, friend_steal * rng.uniform(2, 11) + rng.uniform(5, 70)))
@@ -57,9 +61,13 @@ def _build_rows(days: int, seed: int) -> tuple[list[dict[str, int | str]], list[
                 'date': day_text,
                 'harvest': harvest,
                 'operation': operation,
+                'plant': plant,
+                'farming': farming,
+                'fertilize': fertilize,
+                'merchant': merchant,
+                'sell': sell,
                 'friend_steal': friend_steal,
                 'friend_help': friend_help,
-                'merchant': merchant,
             }
         )
     return steal_rows, action_rows
@@ -94,7 +102,18 @@ def main() -> int:
     )
     _write_csv(
         action_csv,
-        fieldnames=['date', 'harvest', 'operation', 'friend_steal', 'friend_help', 'merchant'],
+        fieldnames=[
+            'date',
+            'harvest',
+            'operation',
+            'plant',
+            'farming',
+            'fertilize',
+            'merchant',
+            'sell',
+            'friend_steal',
+            'friend_help',
+        ],
         rows=action_rows,
     )
 

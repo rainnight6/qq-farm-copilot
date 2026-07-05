@@ -74,7 +74,7 @@ class BotVisionMixin:
                 self.detection_result.emit(annotated_pil)
 
     def _record_stat(self, action_type: str):
-        """将动作类型映射到统计项并累加。"""
+        """将动作类型映射到统计项并累加，同时按分项持久化到 CSV。"""
         type_map = {
             ActionType.HARVEST: 'harvest',
             ActionType.PLANT: 'plant',
@@ -87,13 +87,15 @@ class BotVisionMixin:
         stat_key = type_map.get(action_type)
         if stat_key:
             self.scheduler.record_action(stat_key)
-            harvest_count = 1 if action_type == ActionType.HARVEST else 0
-            merchant_count = 1 if action_type == ActionType.MERCHANT else 0
             record_daily_action(
                 self._resolve_instance_id(),
-                harvest=harvest_count,
-                operation=1,
-                merchant=merchant_count,
+                harvest=1 if action_type == ActionType.HARVEST else 0,
+                plant=1 if action_type == ActionType.PLANT else 0,
+                farming=1 if action_type == ActionType.FARMING else 0,
+                fertilize=1 if action_type == ActionType.FERTILIZE else 0,
+                merchant=1 if action_type == ActionType.MERCHANT else 0,
+                sell=1 if action_type == ActionType.SELL else 0,
+                operation=0 if action_type == ActionType.HARVEST else 1,
             )
 
     def _record_friend_daily_stat(self, stat_type: str, count: int = 1) -> None:
