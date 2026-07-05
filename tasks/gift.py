@@ -6,6 +6,7 @@ import time
 
 from loguru import logger
 
+from core.base.timer import Timer
 from core.engine.task.registry import TaskResult
 from core.ui.assets import (
     ASSET_NAME_TO_CONST,
@@ -62,16 +63,25 @@ class TaskGift(TaskBase):
             logger.info('领取流程: 未找到QQSVIP礼包入口')
             return
 
+        confirm_timer = Timer(2, count=1)
         while 1:
             self.ui.device.screenshot()
             if self.ui.handle_click_close():
+                confirm_timer.clear()
                 continue
             if self.ui.appear_then_click(BTN_QQSVIP, offset=(-20, -20, 160, 20), threshold=0.85, interval=1):
+                confirm_timer.clear()
                 continue
             if self.ui.appear_then_click(BTN_CLAIM, offset=30, interval=1, static=False):
+                confirm_timer.clear()
                 continue
             if not self.ui.appear(BTN_QQSVIP, threshold=0.85, offset=(-20, -20, 160, 20)):
-                break
+                if not confirm_timer.started():
+                    confirm_timer.start()
+                if confirm_timer.reached():
+                    break
+            else:
+                confirm_timer.clear()
         logger.info('领取流程: QQSVIP礼包流程结束')
         return
 

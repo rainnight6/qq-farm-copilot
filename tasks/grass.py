@@ -139,7 +139,7 @@ class TaskGrass(TaskBase):
             if kind == 'end':
                 consecutive_fail_count = 0
                 consecutive_end_count += 1
-                if consecutive_end_count >= 2:
+                if consecutive_end_count >= 3:
                     logger.info(
                         '自动种草: 连续{}次识别到结束图标，确认种草次数已用完，结束任务',
                         consecutive_end_count,

@@ -1022,10 +1022,10 @@ class TaskFriend(TaskBase):
         return self._run_help_maintain_actions()
 
     def _run_help_maintain_actions(self) -> bool:
-        """好友帮忙。"""
+        """好友帮忙（只记录 friend_help，不混入 farming 统计）。"""
         button = self._run_click_loop(
             [
-                (BTN_FARMING, ActionType.FARMING),
+                (BTN_FARMING, None),
             ]
         )
         if button is not None:
@@ -1034,7 +1034,7 @@ class TaskFriend(TaskBase):
             return True
         return False
 
-    def _run_click_loop(self, action_specs: list[tuple[Button, str]]) -> Button | None:
+    def _run_click_loop(self, action_specs: list[tuple[Button, str | None]]) -> Button | None:
         """通用确认循环：逐按钮 appear_then_click，全部消失后确认退出。返回被点击的按钮。"""
         action_buttons = [button for button, _ in action_specs]
 
@@ -1049,7 +1049,8 @@ class TaskFriend(TaskBase):
 
             for button, stat_action in action_specs:
                 if self.ui.appear_then_click(button, offset=30, interval=0.3, static=False):
-                    self.engine._record_stat(stat_action)
+                    if stat_action is not None:
+                        self.engine._record_stat(stat_action)
                     clicked = button
                     confirm_timer.clear()
                     break

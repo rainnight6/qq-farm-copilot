@@ -10,6 +10,7 @@ from loguru import logger
 from core.base.timer import Timer
 from core.ui.assets import *
 from core.ui.page import GOTO_MAIN, page_main
+from models.farm_state import ActionType
 from tasks.main import (
     ALWAYS_SKIP_SEED_BUTTONS,
     BACKGROUND_TREE_STABLE_CHECK_INTERVAL_SECONDS,
@@ -706,8 +707,22 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
         if prepare_status == 'already_planted':
             return actually_planted_refs, did_plant, did_buy_seed
         if prepare_status == 'no_seed_popup':
-            if not use_warehouse_first:
-                logger.info('自动播种: 未发现种子候选框，尝试购买种子并重试 | 作物={}', crop_name)
+            logger.info('自动播种: 未发现种子候选框，先重置缩放后重试 | 作物={}', crop_name)
+            self._reset_zoom_via_skin_page()
+            self.align_view_by_background_tree(log_prefix='自动播种')
+            prepare_status, land_coords, pending_plot_refs, detail_targets, seed_popup_land = (
+                self._prepare_lands_and_open_seed_popup()
+            )
+            if prepare_status == 'no_land':
+                return actually_planted_refs, did_plant, did_buy_seed
+            if prepare_status == 'already_planted':
+                return actually_planted_refs, did_plant, did_buy_seed
+            if prepare_status != 'ready' or seed_popup_land is None:
+                logger.warning(
+                    '自动播种: 重置缩放后仍未打开种子候选框，尝试购买种子并重试 | status={} 作物={}',
+                    prepare_status,
+                    crop_name,
+                )
                 buy_result = self._buy_seeds(crop_name)
                 if buy_result:
                     did_buy_seed = True
@@ -719,23 +734,37 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
                 did_plant = did_plant or extra_did_plant
                 did_buy_seed = did_buy_seed or extra_did_buy
                 return actually_planted_refs, did_plant, did_buy_seed
-            if use_warehouse_first:
-                logger.info('自动播种: 未发现种子候选框，尝试购买种子并重试 | 作物={}', crop_name)
-                buy_result = self._buy_seeds(crop_name)
-                if buy_result:
-                    did_buy_seed = True
-                else:
-                    logger.warning('自动播种: 购买种子失败或未完成，结束本轮播种 | 作物={}', crop_name)
-                    return actually_planted_refs, did_plant, did_buy_seed
-                extra_refs, extra_did_plant, extra_did_buy = self._plant_all(crop_name, retry_round=retry_round + 1)
-                actually_planted_refs.extend(extra_refs)
-                did_plant = did_plant or extra_did_plant
-                did_buy_seed = did_buy_seed or extra_did_buy
-                return actually_planted_refs, did_plant, did_buy_seed
-            return actually_planted_refs, did_plant, did_buy_seed
+
         if prepare_status != 'ready' or seed_popup_land is None:
             logger.warning('自动播种: 播种准备状态异常 | status={}', prepare_status)
             return actually_planted_refs, did_plant, did_buy_seed
+
+        return self._plant_all_ready_branch(
+            crop_name,
+            seed_popup_land,
+            land_coords,
+            pending_plot_refs,
+            detail_targets,
+            retry_round=retry_round,
+        )
+
+    def _plant_all_ready_branch(
+        self,
+        crop_name: str,
+        seed_popup_land: tuple[int, int],
+        land_coords: list[tuple[int, int]],
+        pending_plot_refs: list[str],
+        detail_targets: list[tuple[str, tuple[int, int]]],
+        *,
+        retry_round: int = 0,
+    ) -> tuple[list[str], bool, bool]:
+        """种子候选框已成功打开，继续执行选种/拖拽播种流程。"""
+        actually_planted_refs: list[str] = []
+        did_plant = False
+        did_buy_seed = False
+        warehouse_first = bool(self.config.planting.warehouse_first)
+        skip_event_crops = bool(self.config.planting.skip_event_crops)
+        use_warehouse_first = warehouse_first and not skip_event_crops
 
         if use_warehouse_first:
             cv_img = self.ui.device.screenshot()
@@ -810,6 +839,10 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
                 did_buy_seed = did_buy_seed or extra_did_buy
                 return actually_planted_refs, did_plant, did_buy_seed
         else:
+            seed_index = self._ensure_seed_index_in_warehouse(crop_name)
+            if seed_index is None:
+                logger.warning('自动播种: 仓库确认种子失败，结束本轮 | 作物={}', crop_name)
+                return actually_planted_refs, did_plant, did_buy_seed
             seed_drag_point = self._select_seed_from_popup_by_warehouse_index(seed_index or 0, seed_popup_land)
             if seed_drag_point is None:
                 logger.warning('自动播种: 候选框中无法按仓库序号选择种子 | 仓库序号={}', seed_index)
@@ -817,6 +850,7 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
 
         self._drag_seed_to_lands(seed_drag_point, land_coords)
         did_plant = True
+        self.engine._record_stat(ActionType.PLANT)
         self.ui.device.click_button(GOTO_MAIN)
         self.ui.device.sleep(0.2)
         self.align_view_by_background_tree(log_prefix='自动播种: 播后复检')

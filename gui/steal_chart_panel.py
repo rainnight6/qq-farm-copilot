@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from typing import Callable
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QColor, QFont, QPainter, QPen, QWheelEvent
+from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QWheelEvent
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -179,8 +179,7 @@ class _LineChart(QWidget):
             pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
             p.setPen(pen)
             p.setBrush(Qt.BrushStyle.NoBrush)
-            for i in range(len(points) - 1):
-                p.drawLine(points[i], points[i + 1])
+            p.drawPath(self._build_smooth_path(points))
 
         # 数据点
         dot_radius = 3.5
@@ -208,6 +207,35 @@ class _LineChart(QWidget):
             )
 
         p.end()
+
+    @staticmethod
+    def _build_smooth_path(points: list[QPointF]) -> QPainterPath:
+        """根据数据点生成平滑三次贝塞尔曲线路径。"""
+        path = QPainterPath()
+        path.moveTo(points[0])
+        n = len(points)
+        if n == 2:
+            path.lineTo(points[1])
+            return path
+
+        for i in range(n - 1):
+            p0 = points[max(0, i - 1)]
+            p1 = points[i]
+            p2 = points[i + 1]
+            p3 = points[min(n - 1, i + 2)]
+
+            # Catmull-Rom 样条控制点，张力系数 1/6 保证曲线经过数据点
+            tension = 1.0 / 6.0
+            cp1 = QPointF(
+                p1.x() + (p2.x() - p0.x()) * tension,
+                p1.y() + (p2.y() - p0.y()) * tension,
+            )
+            cp2 = QPointF(
+                p2.x() - (p3.x() - p1.x()) * tension,
+                p2.y() - (p3.y() - p1.y()) * tension,
+            )
+            path.cubicTo(cp1, cp2, p2)
+        return path
 
     def wheelEvent(self, event: QWheelEvent):
         delta = event.angleDelta().y()
@@ -548,12 +576,12 @@ class StealChartPanel(QWidget):
         self._operation_chart = _LineChart(
             self._adjust_window,
             series=[
-                ('收获', '#F5A623'),
-                ('播种', '#8D6E63'),
-                ('务农', '#4CAF50'),
-                ('施肥', '#AB47BC'),
-                ('商人', '#1E88E5'),
-                ('出售', '#EF5350'),
+                ('收获', '#FFD166'),  # 明亮黄
+                ('播种', '#F4A261'),  # 珊瑚橙
+                ('务农', '#06D6A0'),  # 薄荷绿
+                ('施肥', '#B19CD9'),  # 浅香芋紫
+                ('商人', '#118AB2'),  # 海洋蓝
+                ('出售', '#EF476F'),  # 鲜明玫红
             ],
             show_legend=True,
             grid_lines=12,

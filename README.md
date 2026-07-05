@@ -64,10 +64,10 @@
 
 - `main`：农场主流程（收获维护、神秘商人、播种、施肥、扩建、升级）
 - `friend`：独立好友任务（支持 `features.blacklist`、`features.steal_stats`、`features.help_only_guard_dog`，以及偷菜/帮忙各自的 `enabled_time_range` 与 `limit_count`；主界面仅显示黑名单条目数，详情弹窗可维护名单）
-- `grass`：自动种草任务（默认关闭；依次访问好友农场，先帮忙一次，点击 `1-1` 地块打开弹窗后拖拽草种到全部地块；无 `features` 分项开关）
+- `grass`：自动种草任务（默认关闭；依次访问好友农场，先帮忙（若需要），点击 `1-1` 地块打开弹窗后拖拽草种到全部地块；支持 `features.skip_probability: float`，默认 `0.2`，`1` 与 `0` 时不跳过，介于 `0` 与 `1` 之间才按概率跳过）
 - `share`：独立分享任务（仅支持微信平台，通常配合每日触发）
 - `reward`：独立任务奖励领取（默认每 6 小时执行一次）
-- `gift`：物品领取任务（QQSVIP礼包、商城礼包、可选邮件领取；支持分项开关）
+- `gift`：物品领取任务（QQSVIP礼包、商城礼包、月卡领取（如有）、可选邮件领取；支持分项开关）
 - `event`：通用活动任务（默认关闭；每日 `10:01` 执行；按配置资源依次点击，`use_coupon` 控制点券资源，`end_time` 到达后自动关闭）
 - `sell`：独立出售任务（仓库批量出售）
 - `land_scan`：地块巡查任务（默认关闭；每 30 分钟；按实例配置的左右滑动次数分段点击地块并 OCR 采集）
@@ -234,7 +234,9 @@ python main.py
     "interval_seconds": 21600,
     "enabled_time_range": "00:00:00-23:59:59",
     "failure_interval_seconds": 300,
-    "features": {}
+    "features": {
+      "skip_probability": 0.2
+    }
   },
   "share": {
     "enabled": true,
