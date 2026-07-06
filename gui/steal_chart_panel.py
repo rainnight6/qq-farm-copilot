@@ -36,6 +36,33 @@ def _format_date_label(date_text: str) -> str:
     return date_text[5:] if len(date_text) >= 10 else date_text
 
 
+def _build_legend_widget(series: list[tuple[str, str]], stretch: bool = False) -> QWidget:
+    """返回一个水平图例小部件，可嵌入标题行。"""
+    widget = QWidget()
+    layout = QHBoxLayout(widget)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(12)
+    for name, color in series:
+        if not name:
+            continue
+        item = QWidget()
+        item_layout = QHBoxLayout(item)
+        item_layout.setContentsMargins(0, 0, 0, 0)
+        item_layout.setSpacing(4)
+
+        dot = QWidget(item)
+        dot.setFixedSize(8, 8)
+        dot.setStyleSheet(f'background-color: {color}; border-radius: 4px;')
+        item_layout.addWidget(dot)
+
+        label = BodyLabel(name)
+        item_layout.addWidget(label)
+        layout.addWidget(item)
+    if stretch:
+        layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
+    return widget
+
+
 class _LineChart(QWidget):
     """多系列折线图，支持图例、悬停提示和鼠标滚轮缩放。"""
 
@@ -61,27 +88,7 @@ class _LineChart(QWidget):
 
     def legend_widget(self, stretch: bool = False) -> QWidget:
         """返回一个水平图例小部件，可嵌入标题行。"""
-        widget = QWidget()
-        layout = QHBoxLayout(widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
-        for name, color in self._series_config:
-            item = QWidget()
-            item_layout = QHBoxLayout(item)
-            item_layout.setContentsMargins(0, 0, 0, 0)
-            item_layout.setSpacing(4)
-
-            dot = QWidget(item)
-            dot.setFixedSize(8, 8)
-            dot.setStyleSheet(f'background-color: {color}; border-radius: 4px;')
-            item_layout.addWidget(dot)
-
-            label = BodyLabel(name)
-            item_layout.addWidget(label)
-            layout.addWidget(item)
-        if stretch:
-            layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
-        return widget
+        return _build_legend_widget(self._series_config, stretch=stretch)
 
     def set_data(self, data: list[tuple[str, list[int]]]):
         self._data = data
@@ -375,6 +382,7 @@ class _DualBarChart(QWidget):
         right_color: str,
         left_label: str = '',
         right_label: str = '',
+        dual_axis: bool = False,
         parent=None,
     ):
         super().__init__(parent)
@@ -383,6 +391,7 @@ class _DualBarChart(QWidget):
         self._right_color = QColor(right_color)
         self._left_label = left_label
         self._right_label = right_label
+        self._dual_axis = dual_axis
         self._data: list[tuple[str, int, int]] = []
         self._hover_idx = -1
         self.setMouseTracking(True)
@@ -393,10 +402,19 @@ class _DualBarChart(QWidget):
         self._data = data
         self.update()
 
+    def legend_widget(self, stretch: bool = False) -> QWidget:
+        """返回一个水平图例小部件，可嵌入标题行。"""
+        series = [
+            (self._left_label, self._left_color.name()),
+            (self._right_label, self._right_color.name()),
+        ]
+        return _build_legend_widget(series, stretch=stretch)
+
     def _index_at(self, x: float) -> int:
         if not self._data:
             return -1
-        pad_l, pad_r = 56, 16
+        pad_l = 56
+        pad_r = 28 if self._dual_axis else 16
         w = self.width() - pad_l - pad_r
         n = len(self._data)
         if w <= 0:
@@ -431,11 +449,24 @@ class _DualBarChart(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        pad_l, pad_r, pad_t, pad_b = 56, 16, 16, 52
+        pad_l = 56
+        pad_r = 28 if self._dual_axis else 16
+        pad_t, pad_b = 16, 52
         w = self.width() - pad_l - pad_r
         h = self.height() - pad_t - pad_b
         n = len(self._data)
-        max_val = max(max(left, right) for _, left, right in self._data) or 1
+        if self._dual_axis:
+            left_values = [left for _, left, _ in self._data]
+            right_values = [right for _, _, right in self._data]
+            left_max = max(left_values) if left_values else 0
+            right_max = max(right_values) if right_values else 0
+            if left_max <= 0:
+                left_max = 1
+            if right_max <= 0:
+                right_max = 1
+        else:
+            shared_max = max(max(left, right) for _, left, right in self._data) or 1
+            left_max = right_max = shared_max
 
         dark = isDarkTheme()
         fg = QColor('#e2e8f0' if dark else '#1e293b')
@@ -454,8 +485,14 @@ class _DualBarChart(QWidget):
             p.drawText(
                 QRectF(0, y - 10, pad_l - 4, 20),
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-                _format_count(int(max_val * i / 4)),
+                _format_count(int(left_max * i / 4)),
             )
+            if self._dual_axis:
+                p.drawText(
+                    QRectF(pad_l + w + 4, y - 10, pad_r - 4, 20),
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                    _format_count(int(right_max * i / 4)),
+                )
 
         # X 轴底部基线
         p.setPen(QPen(grid_c, 1))
@@ -465,8 +502,8 @@ class _DualBarChart(QWidget):
         bar_w = max(3, min(10, (slot_w - 4) // 2))
         for i, (_, left_v, right_v) in enumerate(self._data):
             x_center = pad_l + i * w // n + slot_w // 2
-            left_bh = int(left_v / max_val * h)
-            right_bh = int(right_v / max_val * h)
+            left_bh = int(left_v / left_max * h)
+            right_bh = int(right_v / right_max * h)
             left_x = x_center - bar_w - 1
             right_x = x_center + 1
             base_y = pad_t + h
@@ -569,7 +606,16 @@ class StealChartPanel(QWidget):
             right_color='#22c55e',
             left_label='金币',
             right_label='金豆',
+            dual_axis=True,
         )
+
+        steal_header = QWidget()
+        steal_header_layout = QHBoxLayout(steal_header)
+        steal_header_layout.setContentsMargins(0, 0, 0, 0)
+        steal_header_layout.setSpacing(8)
+        steal_header_layout.addWidget(steal_title)
+        steal_header_layout.addStretch()
+        steal_header_layout.addWidget(self._steal_chart.legend_widget(stretch=False))
 
         operation_title = BodyLabel('操作明细')
         operation_title.setStyleSheet('font-weight: 700;')
@@ -596,7 +642,7 @@ class StealChartPanel(QWidget):
         operation_header_layout.addStretch()
         operation_header_layout.addWidget(self._operation_chart.legend_widget(stretch=False))
 
-        friend_title = BodyLabel('偷菜 / 帮忙')
+        friend_title = BodyLabel('好友巡查')
         friend_title.setStyleSheet('font-weight: 700;')
         self._friend_chart = _DualBarChart(
             self._adjust_window,
@@ -606,11 +652,19 @@ class StealChartPanel(QWidget):
             right_label='帮忙',
         )
 
-        card_layout.addWidget(steal_title)
+        friend_header = QWidget()
+        friend_header_layout = QHBoxLayout(friend_header)
+        friend_header_layout.setContentsMargins(0, 0, 0, 0)
+        friend_header_layout.setSpacing(8)
+        friend_header_layout.addWidget(friend_title)
+        friend_header_layout.addStretch()
+        friend_header_layout.addWidget(self._friend_chart.legend_widget(stretch=False))
+
+        card_layout.addWidget(steal_header)
         card_layout.addWidget(self._steal_chart, 1)
         card_layout.addWidget(operation_header)
         card_layout.addWidget(self._operation_chart, 2)
-        card_layout.addWidget(friend_title)
+        card_layout.addWidget(friend_header)
         card_layout.addWidget(self._friend_chart, 1)
         layout.addWidget(card, 1)
 

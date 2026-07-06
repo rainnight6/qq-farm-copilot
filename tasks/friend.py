@@ -18,7 +18,6 @@ from core.ui.assets import (
     BTN_FRIEND_APPLY,
     BTN_FRIEND_RIGHT_FRAME,
     BTN_HOME,
-    BTN_MATURE,
     BTN_STEAL,
     BTN_STEAL_SIGN,
     BTN_STEAL_SINGLE,
@@ -303,6 +302,8 @@ class TaskFriend(TaskBase):
         )
 
         has_action = bool(has_steal_action or has_help_action)
+        feature_steal_ok = False
+        feature_need_stats = False
         if not has_action:
             no_action += 1
             logger.info('好友巡查: 当前好友无可执行动作，连续空轮询={}/{}', no_action, FRIEND_NO_ACTION_EXIT_STREAK)
@@ -316,8 +317,6 @@ class TaskFriend(TaskBase):
                 help_allowed_current = self._is_current_friend_guard_dog()
                 if not help_allowed_current and not has_steal_action:
                     logger.info('好友巡查: 当前好友帮忙受护主犬限制，跳过帮忙动作')
-            feature_steal_ok = False
-            feature_need_stats = False
             if steal_available:
                 feature_steal_ok, feature_need_stats = self._run_feature_steal(enable_steal_stats=enable_steal_stats)
                 if feature_steal_ok:
