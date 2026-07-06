@@ -316,13 +316,17 @@ class TaskFriend(TaskBase):
                 help_allowed_current = self._is_current_friend_guard_dog()
                 if not help_allowed_current and not has_steal_action:
                     logger.info('好友巡查: 当前好友帮忙受护主犬限制，跳过帮忙动作')
-            if steal_available and self._run_feature_steal(enable_steal_stats=enable_steal_stats):
-                steal_done_count += 1
-                logger.info(
-                    '好友巡查: 偷菜进度={}/{}',
-                    steal_done_count,
-                    steal_limit_count if steal_limit_count > 0 else '∞',
-                )
+            feature_steal_ok = False
+            feature_need_stats = False
+            if steal_available:
+                feature_steal_ok, feature_need_stats = self._run_feature_steal(enable_steal_stats=enable_steal_stats)
+                if feature_steal_ok:
+                    steal_done_count += 1
+                    logger.info(
+                        '好友巡查: 偷菜进度={}/{}',
+                        steal_done_count,
+                        steal_limit_count if steal_limit_count > 0 else '∞',
+                    )
             if help_allowed_current:
                 if self._run_feature_help():
                     help_done_count += 1
@@ -333,6 +337,7 @@ class TaskFriend(TaskBase):
                     )
         self.ui.device.sleep(0.3)
 
+        single_crop_executed = False
         self.ui.device.screenshot()
         if self.ui.appear(BTN_STEAL_SIGN, offset=30, threshold=0.8, static=False):
             if has_steal_action:
@@ -344,11 +349,15 @@ class TaskFriend(TaskBase):
                     pre_detected_results=single_crop_results,
                 ):
                     steal_done_count += 1
+                    single_crop_executed = True
                     logger.info(
                         '好友巡查: 偷菜进度={}/{}',
                         steal_done_count,
                         steal_limit_count if steal_limit_count > 0 else '∞',
                     )
+
+        if enable_steal_stats and (single_crop_executed or feature_need_stats):
+            self._ocr_and_record_steal()
 
         if not self._goto_next_friend():
             logger.info('好友巡查: 切换下一位好友失败，结束好友任务')
@@ -702,8 +711,8 @@ class TaskFriend(TaskBase):
         """好友帮忙。"""
         return self._help_in_friend_farm()
 
-    def _run_feature_steal(self, *, enable_steal_stats: bool) -> bool:
-        """好友偷菜。"""
+    def _run_feature_steal(self, *, enable_steal_stats: bool) -> tuple[bool, bool]:
+        """好友偷菜。返回 (是否执行偷取, 是否需要后续 OCR 统计)。"""
         button = self._run_click_loop(
             [
                 (BTN_STEAL, ActionType.STEAL),
@@ -712,11 +721,10 @@ class TaskFriend(TaskBase):
         )
         if button is not None:
             self.engine._record_friend_daily_stat('steal')
-            if enable_steal_stats and button is BTN_STEAL:
-                self._ocr_and_record_steal()
+            need_stats = enable_steal_stats and button is BTN_STEAL
             logger.info('好友巡查: 完成动作 | 偷好友果实')
-            return True
-        return False
+            return True, need_stats
+        return False, False
 
     def _get_single_crop_steal_roi(self) -> tuple[int, int, int, int] | None:
         """返回好友农场四格作物单独偷取图标的检测 ROI（页面上方 40%-65% 区域）。"""
@@ -810,18 +818,16 @@ class TaskFriend(TaskBase):
         if clicked_any:
             self.engine._record_friend_daily_stat('steal')
             self.engine._record_stat(ActionType.STEAL)
-            if enable_steal_stats:
-                self._ocr_and_record_steal()
             logger.info('好友巡查: 完成动作 | 偷取四格作物')
             return True
         return False
 
-    def _ocr_and_record_steal(self):
+    def _ocr_and_record_steal(self) -> bool:
         """偷取成功后等待总计按钮，基于 OCR 源数据解析并写入统计。"""
         try:
             if not self._wait_steal_total_button():
                 logger.info('好友偷取统计: 等待超时，跳过本次统计')
-                return
+                return False
 
             self.ui.device.sleep(STEAL_TOTAL_STABLE_WAIT_SECONDS)
             total_amount, loss_amount, bean_amount, score, debug_info = self._wait_stable_steal_ocr_result()
@@ -837,11 +843,13 @@ class TaskFriend(TaskBase):
                 )
                 logger.debug('好友偷取统计 OCR 明细: score={:.2f} {}', score, debug_info)
                 record_steal(self._resolve_instance_id(), coin_amount, bean_amount)
-                return
+                return True
             logger.info('好友偷取统计: 未解析到有效偷取结果，跳过记录')
             logger.debug('好友偷取统计 OCR 明细: score={:.2f} {}', score, debug_info)
+            return False
         except Exception as e:
             logger.warning('好友偷取统计 OCR 失败: {}', e)
+            return False
 
     def _wait_stable_steal_ocr_result(self) -> tuple[int, int, int, float, str]:
         """轮询 OCR，直到连续两次解析结果一致。"""
