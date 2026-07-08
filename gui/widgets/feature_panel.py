@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
+
+from loguru import logger
 
 from PyQt6.QtCore import Qt, QDateTime, QTime, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -36,7 +39,7 @@ from qfluentwidgets import (
 
 from gui.widgets.fluent_container import StableElevatedCardWidget, TransparentCardContainer
 from models.config import AppConfig, normalize_task_enabled_time_range, resolve_executor_task_order
-from utils.app_paths import load_config_json_object
+from utils.app_paths import instance_screenshots_dir, load_config_json_object
 from utils.feature_policy import is_feature_forced_off
 
 SETTINGS_HINT_COLOR = '#d97706'
@@ -147,9 +150,10 @@ class FeaturePanel(QWidget):
 
     config_changed = pyqtSignal(object)
 
-    def __init__(self, config: AppConfig, parent=None):
+    def __init__(self, config: AppConfig, instance_id: str = 'default', parent=None):
         super().__init__(parent)
         self.config = config
+        self.instance_id = str(instance_id or 'default').strip() or 'default'
         labels = load_config_json_object('ui_labels.json', prefer_user=False).get('feature_panel', {})
         template_tasks = load_config_json_object('config.template.json', prefer_user=False).get('tasks', {})
         self._task_title_map = labels.get('task_titles', {})
@@ -351,7 +355,17 @@ class FeaturePanel(QWidget):
                 field_layout = QVBoxLayout(field)
                 field_layout.setContentsMargins(0, 0, 0, 0)
                 field_layout.setSpacing(2)
-                field_layout.addWidget(box)
+                box_row = QWidget(card)
+                box_layout = QHBoxLayout(box_row)
+                box_layout.setContentsMargins(0, 0, 0, 0)
+                box_layout.setSpacing(8)
+                box_layout.addWidget(box)
+                box_layout.addStretch()
+                if task_name == 'main' and feature_name == 'auto_merchant':
+                    history_btn = PushButton('购买历史', box_row)
+                    history_btn.clicked.connect(self._open_merchant_history_folder)
+                    box_layout.addWidget(history_btn)
+                field_layout.addWidget(box_row)
                 if hint_text:
                     hint = CaptionLabel(hint_text, field)
                     hint.setWordWrap(True)
@@ -570,6 +584,15 @@ class FeaturePanel(QWidget):
             return
         self._write_list(task_name, feature_name, dialog.values())
 
+    def _open_merchant_history_folder(self) -> None:
+        """打开当前实例的神秘商人截图保存目录。"""
+        folder = instance_screenshots_dir(self.instance_id) / 'merchant'
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            os.startfile(str(folder))
+        except Exception as exc:
+            logger.warning(f'打开神秘商人截图目录失败: {exc}')
+
     def _auto_save(self) -> None:
         if self._loading:
             return
@@ -723,3 +746,7 @@ class FeaturePanel(QWidget):
         self._loading = True
         self._load_config()
         self._loading = False
+
+    def set_instance_id(self, instance_id: str) -> None:
+        """同步更新当前面板归属的实例 ID（实例重命名后调用）。"""
+        self.instance_id = str(instance_id or 'default').strip() or 'default'

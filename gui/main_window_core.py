@@ -955,7 +955,7 @@ class MainWindow(FluentWindow):
             StatusPanel(),
             LogPanel(),
             TaskPanel(s.config),
-            FeaturePanel(s.config),
+            FeaturePanel(s.config, s.instance_id),
             SettingsPanel(s.config),
             LandDetailPanel(s.config),
         )
@@ -1559,6 +1559,7 @@ class MainWindow(FluentWindow):
         ws.engine.instance_id = s.instance_id
         ws.engine.runtime_paths = self._runtime_paths(s)
         ws.engine.update_config(s.config)
+        ws.feature_panel.set_instance_id(s.instance_id)
         self._workspaces.pop(old, None)
         self._workspaces[ws.instance_id] = ws
         self._switch(ws.instance_id)

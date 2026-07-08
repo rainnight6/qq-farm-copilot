@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
+from utils.app_paths import instance_screenshots_dir
+
 from core.base.timer import Timer
 from core.ui.assets import *
 from core.ui.page import GOTO_MAIN, page_main, page_mall
@@ -144,6 +146,23 @@ class TaskMainActionsMixin:
             else:
                 confirm_timer.clear()
 
+    def _save_merchant_screenshot(self) -> None:
+        """保存神秘商人购买前的截图到实例截图目录，文件名带时间戳。"""
+        try:
+            instance_id = getattr(self.engine, 'instance_id', 'default') or 'default'
+            save_dir = instance_screenshots_dir(instance_id) / 'merchant'
+            save_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
+            path = save_dir / f'merchant_{timestamp}.png'
+            preview = self.ui.device.preview_image
+            if preview is not None:
+                preview.save(path, format='PNG')
+                logger.info(f'神秘商人: 截图已保存 {path}')
+            else:
+                logger.warning('神秘商人: 预览图为空，无法保存截图')
+        except Exception as exc:
+            logger.warning(f'神秘商人: 保存截图失败 {exc}')
+
     def _run_feature_merchant(self) -> None:
         """神秘商人：主界面出现商人图标时点击购买。"""
         logger.info('神秘商人: 开始')
@@ -165,6 +184,8 @@ class TaskMainActionsMixin:
                 logger.warning('神秘商人: 弹窗加载超时')
                 return
             self.ui.device.sleep(0.2)
+
+        self._save_merchant_screenshot()
 
         confirm_timer = Timer(3.0).start()
         confirmed = False
