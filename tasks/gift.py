@@ -25,6 +25,9 @@ from tasks.base import TaskBase
 
 MENU_GOTO_MAIL = ASSET_NAME_TO_CONST.get('menu_goto_mail')
 
+# QQSVIP 礼包入口识别 ROI（相对 BTN_QQSVIP 设计区域扩展）。
+BTN_QQSVIP_SEARCH_ROI = (92, 128, 293, 199)
+
 
 class TaskGift(TaskBase):
     """封装 `TaskGift` 任务的执行入口与步骤。"""
@@ -59,7 +62,7 @@ class TaskGift(TaskBase):
         """领取 QQSVIP 礼包。"""
         logger.info('领取流程: 检查QQSVIP礼包领取')
         self.ui.device.screenshot()
-        if not self.ui.appear(BTN_QQSVIP, offset=(-20, -20, 160, 20)):
+        if self.ui.appear_location_in_roi(BTN_QQSVIP, BTN_QQSVIP_SEARCH_ROI, threshold=0.85) is None:
             logger.info('领取流程: 未找到QQSVIP礼包入口')
             return
 
@@ -69,13 +72,13 @@ class TaskGift(TaskBase):
             if self.ui.handle_click_close():
                 confirm_timer.clear()
                 continue
-            if self.ui.appear_then_click(BTN_QQSVIP, offset=(-20, -20, 160, 20), threshold=0.85, interval=1):
+            if self.ui.appear_then_click_in_roi(BTN_QQSVIP, BTN_QQSVIP_SEARCH_ROI, threshold=0.85, interval=1):
                 confirm_timer.clear()
                 continue
             if self.ui.appear_then_click(BTN_CLAIM, offset=30, interval=1, static=False):
                 confirm_timer.clear()
                 continue
-            if not self.ui.appear(BTN_QQSVIP, threshold=0.85, offset=(-20, -20, 160, 20)):
+            if self.ui.appear_location_in_roi(BTN_QQSVIP, BTN_QQSVIP_SEARCH_ROI, threshold=0.85) is None:
                 if not confirm_timer.started():
                     confirm_timer.start()
                 if confirm_timer.reached():

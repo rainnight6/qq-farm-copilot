@@ -624,6 +624,64 @@ class ModuleBase:
             self._button_interval_hit(key)
         return ok
 
+    def appear_location_in_roi(
+        self,
+        button: Button,
+        roi: tuple[int, int, int, int],
+        *,
+        offset: int | tuple[int, int] | tuple[int, int, int, int] = 30,
+        threshold: float = 0.74,
+    ) -> tuple[int, int] | None:
+        """在指定 ROI 内动态识别按钮，返回全图中心坐标；未命中返回 None。
+
+        适用于按钮可能在 ROI 内漂移、但 static=True 会导致点击固定在设计坐标的场景。
+        """
+        image = self.device.image
+        if image is None:
+            return None
+        rx1, ry1, rx2, ry2 = [int(v) for v in roi]
+        sh, sw = image.shape[:2]
+        rx1 = max(0, min(rx1, sw - 1))
+        ry1 = max(0, min(ry1, sh - 1))
+        rx2 = max(rx1 + 1, min(rx2, sw))
+        ry2 = max(ry1 + 1, min(ry2, sh))
+        if rx2 <= rx1 or ry2 <= ry1:
+            return None
+        cropped = image[ry1:ry2, rx1:rx2]
+        previous_image = self.device.image
+        try:
+            self.device.set_image(cropped)
+            loc = self.appear_location(button, offset=offset, static=False, threshold=threshold)
+        finally:
+            self.device.set_image(previous_image)
+        # 清理动态偏移，避免污染后续基于 button.location 的点击。
+        button._button_offset = None
+        if loc is None:
+            return None
+        return int(loc[0] + rx1), int(loc[1] + ry1)
+
+    def appear_then_click_in_roi(
+        self,
+        button: Button,
+        roi: tuple[int, int, int, int],
+        *,
+        interval: int | float = 0,
+        threshold: float = 0.74,
+    ) -> bool:
+        """在指定 ROI 内动态识别按钮并点击其实际命中位置；支持节流。"""
+        key = button.name
+        if interval and not self._button_interval_ready(key, float(interval)):
+            return False
+
+        loc = self.appear_location_in_roi(button, roi, threshold=threshold)
+        if loc is None:
+            return False
+
+        ok = bool(self.device.click_point(int(loc[0]), int(loc[1]), desc=button.name))
+        if ok and interval:
+            self._button_interval_hit(key)
+        return ok
+
     def interval_reset(self, button):
         """重置一个或一组按钮的点击节流计时器。"""
         if isinstance(button, (list, tuple)):

@@ -508,8 +508,9 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
                         break
                 # 空土地弹窗
                 empty_location = self.ui.appear_location(
-                    BTN_LAND_POP_EMPTY, offset=(-160, -180, 280, 280), threshold=0.65
+                    BTN_LAND_POP_EMPTY, offset=(-160, -180, 280, 280), threshold=0.65, static=False
                 )
+                BTN_LAND_POP_EMPTY._button_offset = None
                 if empty_location is not None and removal_location is None:
                     removal_location = empty_location
                     logger.debug(
@@ -780,31 +781,16 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         brand_roi: tuple[int, int, int, int] | None = None,
     ) -> tuple[int, int] | None:
         """识别 BTN_EXPAND_BRAND 中心位置；传入 brand_roi 时只在 ROI 内做 btn 识别。"""
-        if brand_roi is None:
-            return self.ui.appear_location(BTN_EXPAND_BRAND, offset=30, threshold=0.7, static=False)
-
-        rx1, ry1, rx2, ry2 = [int(v) for v in brand_roi]
-        previous_image = self.ui.device.image
-        if previous_image is None:
-            return None
-        sh, sw = previous_image.shape[:2]
-        rx1 = max(0, min(rx1, sw - 1))
-        ry1 = max(0, min(ry1, sh - 1))
-        rx2 = max(rx1 + 1, min(rx2, sw))
-        ry2 = max(ry1 + 1, min(ry2, sh))
-        if rx2 <= rx1 or ry2 <= ry1:
-            return None
-
-        cropped = previous_image[ry1:ry2, rx1:rx2]
-        try:
-            self.ui.device.set_image(cropped)
-            loc_in_crop = self.ui.appear_location(BTN_EXPAND_BRAND, offset=30, threshold=0.65, static=False)
-        finally:
-            self.ui.device.set_image(previous_image)
-
-        if loc_in_crop is None:
-            return None
-        return (int(loc_in_crop[0] + rx1), int(loc_in_crop[1] + ry1))
+        if brand_roi is not None:
+            return self.ui.appear_location_in_roi(
+                BTN_EXPAND_BRAND,
+                brand_roi,
+                offset=30,
+                threshold=0.65,
+            )
+        loc = self.ui.appear_location(BTN_EXPAND_BRAND, offset=30, threshold=0.7, static=False)
+        BTN_EXPAND_BRAND._button_offset = None
+        return loc
 
     @staticmethod
     def _pick_nearest_cell(cells: list[LandCell], point: tuple[int, int]) -> LandCell | None:

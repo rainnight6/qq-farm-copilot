@@ -27,14 +27,7 @@ BTN_EXPAND_SEARCH_ROI = (
     LAND_SCAN_FRAME_WIDTH,
     int(LAND_SCAN_FRAME_HEIGHT * 0.68),
 )
-# 基于 BTN_EXPAND 固定 area 计算 offset，使模板匹配在该 ROI 内进行。
 BTN_EXPAND_THRESHOLD = 0.8
-BTN_EXPAND_SEARCH_OFFSET = (
-    BTN_EXPAND_SEARCH_ROI[0] - BTN_EXPAND.area[0],
-    BTN_EXPAND_SEARCH_ROI[1] - BTN_EXPAND.area[1],
-    BTN_EXPAND_SEARCH_ROI[2] - BTN_EXPAND.area[2],
-    BTN_EXPAND_SEARCH_ROI[3] - BTN_EXPAND.area[3],
-)
 
 
 class TaskMainLandMixin:
@@ -107,10 +100,12 @@ class TaskMainLandMixin:
             removal_location = None
             if self.ui.appear(BTN_CROP_REMOVAL, offset=30, static=False):
                 removal_location = self.ui.appear_location(BTN_CROP_REMOVAL, offset=30, static=False)
+                BTN_CROP_REMOVAL._button_offset = None
             elif self.ui.appear(BTN_LAND_POP_EMPTY, offset=(-160, -180, 280, 280), threshold=0.65):
                 removal_location = self.ui.appear_location(
-                    BTN_LAND_POP_EMPTY, offset=(-160, -180, 280, 280), threshold=0.65
+                    BTN_LAND_POP_EMPTY, offset=(-160, -180, 280, 280), threshold=0.65, static=False
                 )
+                BTN_LAND_POP_EMPTY._button_offset = None
 
             if removal_location is not None:
                 matched = self.ui.match_gif_multi(
@@ -150,7 +145,7 @@ class TaskMainLandMixin:
         # 点击空白处
         self.ui.device.click_button(GOTO_MAIN)
         self.ui.device.screenshot()
-        if not self.ui.appear(BTN_EXPAND, offset=BTN_EXPAND_SEARCH_OFFSET, static=True, threshold=BTN_EXPAND_THRESHOLD):
+        if self.ui.appear_location_in_roi(BTN_EXPAND, BTN_EXPAND_SEARCH_ROI, threshold=BTN_EXPAND_THRESHOLD) is None:
             logger.info('自动扩建: 未发现待扩建土地')
             return None
 
@@ -158,9 +153,10 @@ class TaskMainLandMixin:
         while 1:
             self.ui.device.screenshot()
 
-            if self.ui.appear_then_click(
-                BTN_EXPAND, offset=BTN_EXPAND_SEARCH_OFFSET, interval=1, static=True, threshold=BTN_EXPAND_THRESHOLD
+            if self.ui.appear_then_click_in_roi(
+                BTN_EXPAND, BTN_EXPAND_SEARCH_ROI, interval=1, threshold=BTN_EXPAND_THRESHOLD
             ):
+                confirm_timer.clear()
                 continue
             if self.ui.appear(BTN_EXPAND_CHECK, offset=30) and self.ui.appear_then_click(
                 BTN_EXPAND_DIRECT_CONFIRM, offset=30, interval=1
@@ -170,16 +166,11 @@ class TaskMainLandMixin:
                 BTN_EXPAND_CONFIRM, offset=30, interval=1
             ):
                 continue
-            if not self.ui.appear(
-                BTN_EXPAND, offset=BTN_EXPAND_SEARCH_OFFSET, static=True, threshold=BTN_EXPAND_THRESHOLD
-            ):
-                if not confirm_timer.started():
-                    confirm_timer.start()
-                if confirm_timer.reached():
-                    logger.info('自动扩建: 已完成')
-                    break
-            else:
-                confirm_timer.clear()
+            if not confirm_timer.started():
+                confirm_timer.start()
+            if confirm_timer.reached():
+                logger.info('自动扩建: 已完成')
+                break
 
         return None
 

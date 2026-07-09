@@ -18,6 +18,10 @@ from utils.win_input import press_escape
 BTN_TASK_DAILY_TAB = ASSET_NAME_TO_CONST.get('btn_task_daily')
 BTN_TASK_GROWTH_TAB = ASSET_NAME_TO_CONST.get('btn_task_growth')
 
+# 任务奖励领取按钮识别 ROI（每日任务在下方，成长任务在上方）。
+BTN_CLAIM_TASK_DAILY_ROI = (386, 466, 484, 797)
+BTN_CLAIM_TASK_GROWTH_ROI = (386, 226, 484, 507)
+
 
 class TaskReward(TaskBase):
     """封装 `TaskReward` 任务的执行入口与步骤。"""
@@ -52,9 +56,9 @@ class TaskReward(TaskBase):
             self.ui.device.screenshot()
             if self.ui.handle_click_close():
                 continue
-            if self.ui.appear_then_click(BTN_CLAIM_TASK, offset=(-30, -10, 30, 300), interval=1):
+            if self.ui.appear_then_click_in_roi(BTN_CLAIM_TASK, BTN_CLAIM_TASK_DAILY_ROI, interval=1):
                 continue
-            if not self.ui.appear(BTN_CLAIM_TASK, offset=(-30, -10, 30, 300)):
+            if self.ui.appear_location_in_roi(BTN_CLAIM_TASK, BTN_CLAIM_TASK_DAILY_ROI) is None:
                 break
         return
 
@@ -69,7 +73,7 @@ class TaskReward(TaskBase):
             self.ui.device.screenshot()
             if self.ui.handle_click_close():
                 continue
-            if self.ui.appear_then_click(BTN_CLAIM_TASK, offset=(-30, -250, 30, 10)):
+            if self.ui.appear_then_click_in_roi(BTN_CLAIM_TASK, BTN_CLAIM_TASK_GROWTH_ROI, interval=1):
                 continue
             if self.ui.appear(BTN_SHARE_YELLOW, offset=30, static=False):
                 if platform_value == 'wechat' and self.ui.appear_then_click(
@@ -83,7 +87,7 @@ class TaskReward(TaskBase):
                     BTN_DIRECT_CLAIM, offset=30, interval=1, static=False
                 ):
                     continue
-            if not self.ui.appear(BTN_CLAIM_TASK, offset=(-30, -250, 30, 10)):
+            if self.ui.appear_location_in_roi(BTN_CLAIM_TASK, BTN_CLAIM_TASK_GROWTH_ROI) is None:
                 break
 
         return
