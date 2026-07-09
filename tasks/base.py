@@ -42,6 +42,8 @@ DEFAULT_ALIGN_SWIPE_V_P2 = (200, 220)
 DEFAULT_ALIGN_SWIPE_SPEED = 30
 DEFAULT_ALIGN_SWIPE_DELAY = 0.2
 DEFAULT_ALIGN_SWIPE_HOLD = 0.1
+# 左右锚点同时识别时，相对位置偏差容差（像素）；超出则视为误识别并按单侧推断。
+LAND_ANCHOR_INCONSISTENCY_TOLERANCE_PIXELS = 30
 
 
 @dataclass(slots=True)
@@ -302,7 +304,7 @@ class TaskBase:
                 用此间距推断另一侧位置；传 None 时使用基准间距。
             anchor_threshold: 左右锚点模板匹配阈值。
         """
-        from core.ui.assets import BTN_LAND_LEFT
+        from core.ui.assets import BTN_LAND_LEFT, BTN_LAND_RIGHT, BTN_LAND_RIGHT_2
         from utils.land_grid import get_lands_from_land_anchor
 
         self.ui.device.screenshot()
@@ -312,6 +314,37 @@ class TaskBase:
         land_left_anchor = self.ui.appear_location(
             BTN_LAND_LEFT, offset=(-160, -30, 30, 30), threshold=float(anchor_threshold), static=static
         )
+
+        # 当两侧锚点均识别到且提供了实测间距时，校验相对位置是否与期望间距一致；
+        # 不一致时视为误识别，保留置信度较高的一侧，另一侧按间距推断。
+        if land_right_anchor is not None and land_left_anchor is not None and anchor_span is not None:
+            expected_span = anchor_span
+            actual_dx = int(land_left_anchor[0] - land_right_anchor[0])
+            actual_dy = int(land_left_anchor[1] - land_right_anchor[1])
+            if (
+                abs(actual_dx - expected_span[0]) > LAND_ANCHOR_INCONSISTENCY_TOLERANCE_PIXELS
+                or abs(actual_dy - expected_span[1]) > LAND_ANCHOR_INCONSISTENCY_TOLERANCE_PIXELS
+            ):
+                right_score = max(BTN_LAND_RIGHT._last_score, BTN_LAND_RIGHT_2._last_score)
+                left_score = BTN_LAND_LEFT._last_score
+                logger.warning(
+                    '{}: 左右锚点相对位置异常，按置信度保留单侧 | 右锚点={} 左锚点={} '
+                    '实测间距=({},{}) 期望间距=({},{}) 右置信度={:.3f} 左置信度={:.3f}',
+                    log_prefix,
+                    land_right_anchor,
+                    land_left_anchor,
+                    actual_dx,
+                    actual_dy,
+                    expected_span[0],
+                    expected_span[1],
+                    right_score,
+                    left_score,
+                )
+                if right_score >= left_score:
+                    land_left_anchor = None
+                else:
+                    land_right_anchor = None
+
         if land_right_anchor is None and land_left_anchor is None:
             logger.warning('{}: 未识别到地块锚点，跳过本轮', log_prefix)
             return []
