@@ -745,6 +745,7 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
             land_coords,
             pending_plot_refs,
             detail_targets,
+            seed_index=seed_index,
             retry_round=retry_round,
         )
 
@@ -756,6 +757,7 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
         pending_plot_refs: list[str],
         detail_targets: list[tuple[str, tuple[int, int]]],
         *,
+        seed_index: int | None = None,
         retry_round: int = 0,
     ) -> tuple[list[str], bool, bool]:
         """种子候选框已成功打开，继续执行选种/拖拽播种流程。"""
@@ -839,7 +841,8 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
                 did_buy_seed = did_buy_seed or extra_did_buy
                 return actually_planted_refs, did_plant, did_buy_seed
         else:
-            seed_index = self._ensure_seed_index_in_warehouse(crop_name)
+            if seed_index is None:
+                seed_index = self._ensure_seed_index_in_warehouse(crop_name)
             if seed_index is None:
                 logger.warning('自动播种: 仓库确认种子失败，结束本轮 | 作物={}', crop_name)
                 return actually_planted_refs, did_plant, did_buy_seed

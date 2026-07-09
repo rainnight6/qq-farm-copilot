@@ -509,6 +509,8 @@ class TaskMainBuySeedMixin:
             return None
 
         self.ui.ui_ensure(page_warehouse_seed, confirm_wait=0.5)
+        # 确保从仓库种子页顶部开始识别，使检测到的格子序号与真实仓库序号对齐。
+        self._reset_warehouse_seed_scroll_to_top()
         cv_img = self.ui.device.screenshot()
         slot_boxes = detect_warehouse_seed_slot_boxes(cv_img)
         locked_slot_indexes = self._detect_locked_warehouse_slot_indexes(cv_img, slot_boxes)
