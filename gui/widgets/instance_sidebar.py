@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QAbstractItemView, QFrame, QListWidgetItem, QVBoxLayout, QWidget
-from qfluentwidgets import BodyLabel, CardWidget, CaptionLabel, FluentIcon, ListWidget, PrimaryPushButton, PushButton
+from PyQt6.QtWidgets import QAbstractItemView, QFrame, QListWidgetItem, QVBoxLayout
+from qfluentwidgets import BodyLabel, CaptionLabel, CardWidget, FluentIcon, ListWidget, PrimaryPushButton, PushButton
 
 
 class InstanceSidebar(CardWidget):
@@ -93,6 +93,7 @@ class InstanceSidebar(CardWidget):
             'running': '运行中',
             'paused': '已暂停',
             'idle': '空闲',
+            'degraded': '降级运行',
         }.get(str(state or 'idle').lower(), '未知状态')
 
     def set_instances(self, instances: list[dict[str, Any]]) -> None:

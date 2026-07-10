@@ -1257,6 +1257,8 @@ class BotRuntimeMixin:
         engine = self._engine()
         self._fatal_error_stop_requested = False
         self._restart_task_payload = None
+        self._buy_seed_failure_degraded = False
+        self._buy_seed_not_planted_count = 0
         if not engine._stop_executor():
             logger.warning('执行器仍在停止中，请稍候重试')
             return
@@ -1297,8 +1299,11 @@ class BotRuntimeMixin:
         """恢复当前模块执行。"""
         if self._task_executor:
             self._task_executor.resume()
-        self.scheduler.force_state('running')
-        self.state_changed.emit('running')
+        if getattr(self, '_buy_seed_failure_degraded', False):
+            self.scheduler.force_state('degraded')
+        else:
+            self.scheduler.force_state('running')
+        self.state_changed.emit(self.scheduler.state.value)
         self.stats_updated.emit(self.scheduler.get_stats())
 
     def toggle_game_window_visibility(self) -> bool:

@@ -1110,13 +1110,15 @@ class MainWindow(FluentWindow):
     @staticmethod
     def _is_running_state(state: str) -> bool:
         normalized = str(state or 'idle').strip().lower()
-        return normalized in {'starting', 'running', 'paused', 'analyzing', 'executing', 'waiting'}
+        return normalized in {'starting', 'running', 'paused', 'analyzing', 'executing', 'waiting', 'degraded'}
 
     @staticmethod
     def _instance_state_icon(state: str) -> QIcon:
         normalized = str(state or 'idle').lower()
         if normalized in {'running', 'analyzing', 'executing', 'waiting'}:
             return FluentIcon.ROBOT.icon(color=QColor('#16a34a'))
+        if normalized == 'degraded':
+            return FluentIcon.WARNING.icon(color=QColor('#f59e0b'))
         if normalized == 'paused':
             return FluentIcon.PAUSE.icon(color=QColor('#f59e0b'))
         if normalized == 'error':

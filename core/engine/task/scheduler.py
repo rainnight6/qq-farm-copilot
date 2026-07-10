@@ -18,6 +18,7 @@ class BotState(str, Enum):
     EXECUTING = 'executing'
     WAITING = 'waiting'
     ERROR = 'error'
+    DEGRADED = 'degraded'
 
 
 class TaskScheduler(QObject):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -33,8 +34,18 @@ if TYPE_CHECKING:
 SEED_LOCKED_ROI_SIZE = 25
 SEED_LOCKED_THRESHOLD = 0.91
 
-# 单次启动内“买种后未种成”异常通知上限。
-_PLANT_BUY_SEED_BUT_NOT_PLANTED_NOTIFY_LIMIT = 2
+# 购买种子后仍未成功种植的连续阈值；达到后实例进入降级运行。
+_BUY_SEED_NOT_PLANTED_THRESHOLD = 3
+_BUY_SEED_NOT_PLANTED_DEGRADED_REASON = '自动播种连续三次购买种子后未成功种植，实例已降级运行，播种功能已暂停'
+
+
+@dataclass(frozen=True)
+class PlantResult:
+    """播种子步骤执行结果。"""
+
+    action: str | None = None
+    did_plant: bool = False
+    did_buy_seed: bool = False
 
 
 class TaskMainPlantingMixin(TaskMainBuySeedMixin):
@@ -46,10 +57,57 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._buy_seed_but_not_planted_notify_count = 0
 
-    def _run_feature_plant(self) -> str | None:
-        """自动播种；仅在真正完成播种后返回动作描述。"""
+    def _is_degraded(self) -> bool:
+        """当前实例是否因买种失败进入降级运行。"""
+        return bool(getattr(self.engine, '_buy_seed_failure_degraded', False))
+
+    def _reset_buy_seed_failure_count(self) -> None:
+        """买种成功或状态恢复时重置连续失败计数。"""
+        self.engine._buy_seed_not_planted_count = 0
+
+    def _record_buy_seed_not_planted(self, crop_name: str) -> None:
+        """记录一次“购买种子后未成功种植”的连续失败。
+
+        达到阈值时发送异常通知并将实例置为降级运行。
+        """
+        count = int(getattr(self.engine, '_buy_seed_not_planted_count', 0)) + 1
+        self.engine._buy_seed_not_planted_count = count
+        logger.warning(
+            '自动播种: 购买种子后未成功种植 | 作物={} 连续次数={}/{}',
+            crop_name,
+            count,
+            _BUY_SEED_NOT_PLANTED_THRESHOLD,
+        )
+
+        if count < _BUY_SEED_NOT_PLANTED_THRESHOLD:
+            return
+
+        if self._is_degraded():
+            return
+
+        logger.error('自动播种: 连续买种未种达到阈值，实例进入降级运行 | 作物={}', crop_name)
+        self.engine._buy_seed_failure_degraded = True
+        try:
+            self.engine.scheduler.force_state('degraded')
+        except Exception as exc:
+            logger.warning('自动播种: 设置降级运行状态失败 | error={}', exc)
+
+        try:
+            send_exception_notification(
+                config=self.config,
+                instance_id=str(getattr(self.engine, '_instance_id', 'default') or 'default'),
+                reason=_BUY_SEED_NOT_PLANTED_DEGRADED_REASON,
+            )
+        except Exception as exc:
+            logger.debug('自动播种: 降级运行通知发送失败 | error={}', exc)
+
+    def _run_feature_plant(self) -> PlantResult:
+        """自动播种；返回播种子步骤执行结果。"""
+        if self._is_degraded():
+            logger.warning('自动播种: 实例处于降级运行状态，跳过播种')
+            return PlantResult()
+
         logger.info('自动播种: 开始')
         self.ui.ui_ensure(page_main)
 
@@ -61,35 +119,24 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
         # has_land = self.ui.appear_any(LAND_LIST, offset=30, threshold=0.89, static=False)
         # if not has_land:
         #     logger.info('无需播种')
-        #     return
+        #     return PlantResult()
 
         planted_refs, did_plant, did_buy_seed = self._plant_all(self.engine._resolve_crop_name())
         if did_plant:
+            self._reset_buy_seed_failure_count()
             self.config.planting.skip_fertilize_after_seed_rounds = 2
             try:
                 self.config.save()
             except Exception as exc:
                 logger.warning('自动播种: 保存跳过施肥轮数失败 | error={}', exc)
-            return '自动播种'
+            return PlantResult(action='自动播种', did_plant=True, did_buy_seed=did_buy_seed)
 
         if did_buy_seed:
-            logger.warning('自动播种: 已购买种子但未成功种植 | 作物={}', self.engine._resolve_crop_name())
-            if self._buy_seed_but_not_planted_notify_count < _PLANT_BUY_SEED_BUT_NOT_PLANTED_NOTIFY_LIMIT:
-                self._buy_seed_but_not_planted_notify_count += 1
-                try:
-                    send_exception_notification(
-                        config=self.config,
-                        instance_id=str(getattr(self.engine, '_instance_id', 'default') or 'default'),
-                        reason='自动播种购买种子后未成功种植，请及时检查种子/金币/仓库状态',
-                    )
-                except Exception as exc:
-                    logger.debug('自动播种: 买种未种通知发送失败 | error={}', exc)
-            else:
-                logger.info(
-                    '自动播种: 买种未种通知已达单次启动上限 {} 次，后续静默',
-                    _PLANT_BUY_SEED_BUT_NOT_PLANTED_NOTIFY_LIMIT,
-                )
-        return None
+            self._record_buy_seed_not_planted(self.engine._resolve_crop_name())
+            return PlantResult(did_buy_seed=True)
+
+        self._reset_buy_seed_failure_count()
+        return PlantResult()
 
     @staticmethod
     def _get_icon_land_buttons() -> list[Button]:
@@ -671,6 +718,10 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
             (实际播种的地块序号列表, 是否真正执行过播种, 本轮是否执行过购买种子)
         """
 
+        if self._is_degraded():
+            logger.warning('自动播种: 实例已降级运行，跳过本轮播种 | 作物={}', crop_name)
+            return [], False, False
+
         warehouse_first = bool(self.config.planting.warehouse_first)
         skip_event_crops = bool(self.config.planting.skip_event_crops)
         use_warehouse_first = warehouse_first and not skip_event_crops
@@ -694,7 +745,8 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
             if not preview_land_coords:
                 logger.info('自动播种: 未发现空土地，跳过仓库种子确认')
                 return actually_planted_refs, did_plant, did_buy_seed
-            seed_index = self._ensure_seed_index_in_warehouse(crop_name)
+            seed_index, bought = self._ensure_seed_index_in_warehouse(crop_name)
+            did_buy_seed = did_buy_seed or bought
             if seed_index is None:
                 logger.warning('自动播种: 仓库确认种子失败，结束本轮 | 作物={}', crop_name)
                 return actually_planted_refs, did_plant, did_buy_seed
@@ -842,7 +894,8 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
                 return actually_planted_refs, did_plant, did_buy_seed
         else:
             if seed_index is None:
-                seed_index = self._ensure_seed_index_in_warehouse(crop_name)
+                seed_index, bought = self._ensure_seed_index_in_warehouse(crop_name)
+                did_buy_seed = did_buy_seed or bought
             if seed_index is None:
                 logger.warning('自动播种: 仓库确认种子失败，结束本轮 | 作物={}', crop_name)
                 return actually_planted_refs, did_plant, did_buy_seed

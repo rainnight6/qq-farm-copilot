@@ -75,6 +75,8 @@ class BotInitMixin:
         self._exception_count: int = 0
         self._repair_count: int = 0
         self._restart_count: int = 0
+        self._buy_seed_failure_degraded: bool = False
+        self._buy_seed_not_planted_count: int = 0
         self._recovery_last_error: str = '--'
         self._recovery_last_action: str = '--'
         self._recovery_last_outcome: str = '--'

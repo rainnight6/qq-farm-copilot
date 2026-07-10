@@ -219,12 +219,14 @@ class StatusPanel(QWidget):
             'running': QColor('#16A34A'),
             'paused': QColor('#D97706'),
             'error': QColor('#DC2626'),
+            'degraded': QColor('#D97706'),
         }
         style_map = {
             'idle': ('rgba(100,116,139,0.10)', 'rgba(100,116,139,0.30)'),
             'running': ('rgba(22,163,74,0.12)', 'rgba(22,163,74,0.34)'),
             'paused': ('rgba(217,119,6,0.12)', 'rgba(217,119,6,0.34)'),
             'error': ('rgba(220,38,38,0.12)', 'rgba(220,38,38,0.34)'),
+            'degraded': ('rgba(217,119,6,0.12)', 'rgba(217,119,6,0.34)'),
         }
         fg = fg_map.get(state, QColor('#2563EB'))
         bg, border = style_map.get(state, ('rgba(37,99,235,0.12)', 'rgba(37,99,235,0.34)'))
@@ -250,6 +252,7 @@ class StatusPanel(QWidget):
             'running': '运行中',
             'paused': '已暂停',
             'error': '异常',
+            'degraded': '降级运行',
         }.get(state, state)
         self._set_state_badge(state, state_text)
         self._set_value('elapsed', stats.get('elapsed', '--'))

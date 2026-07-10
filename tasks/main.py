@@ -284,10 +284,10 @@ class TaskMain(
             self._run_feature_expand()
 
         # 自动播种
-        if features.auto_plant:
+        if features.auto_plant and not self._is_degraded():
             self._sync_player_level_before_plant()
             plant_result = self._run_feature_plant()
-            if plant_result:
+            if plant_result.did_plant:
                 self._trigger_land_scan_after_plant()
 
         # 自动施肥
@@ -296,10 +296,10 @@ class TaskMain(
             if fertilize_result:
                 self._trigger_feature_harvest_after_fertilize()
                 # 施肥催熟收获后可能空出新的可播种地块，再补一轮播种
-                if features.auto_plant:
+                if features.auto_plant and not self._is_degraded():
                     self._sync_player_level_before_plant()
                     plant_result = self._run_feature_plant()
-                    if plant_result:
+                    if plant_result.did_plant:
                         self._trigger_land_scan_after_plant()
 
         # 自动升级

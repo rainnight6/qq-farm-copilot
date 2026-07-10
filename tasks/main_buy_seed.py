@@ -603,22 +603,23 @@ class TaskMainBuySeedMixin:
                 return int(candidate.index)
         return None
 
-    def _ensure_seed_index_in_warehouse(self, crop_name: str) -> int | None:
-        """确保仓库中有目标种子，并返回其仓库序号。"""
+    def _ensure_seed_index_in_warehouse(self, crop_name: str) -> tuple[int | None, bool]:
+        """确保仓库中有目标种子，并返回其仓库序号与是否执行过购买。"""
         seed_index = self._locate_seed_index_in_warehouse(crop_name)
         if seed_index is not None:
-            return seed_index
+            return seed_index, False
 
         logger.info('自动播种: 仓库未确认目标种子，开始购买 | 作物={}', crop_name)
         buy_result = self._buy_seeds(crop_name)
         if not buy_result:
             logger.warning('自动播种: 购买种子失败或未完成 | 作物={}', crop_name)
-            return None
+            return None, False
 
         seed_index = self._locate_seed_index_in_warehouse(crop_name)
         if seed_index is None:
             logger.warning('自动播种: 购买后仍未在仓库确认目标种子 | 作物={}', crop_name)
-        return seed_index
+            return None, True
+        return seed_index, True
 
     def _is_crop_aligned_with_strategy(self, crop_name: str) -> bool:
         """校验当前作物是否与自动策略一致。"""
