@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 import re
 from datetime import datetime
 
@@ -80,6 +81,11 @@ STEAL_TOTAL_OCR_POLL_INTERVAL_SECONDS = 0.2
 GUARD_DOG_DETECT_TIMEOUT_SECONDS = 2
 # 偷取统计 OCR 固定区域（x1, y1, x2, y2），按当前统一截图坐标系定义。
 STEAL_TOTAL_OCR_REGION = (420, 240, 530, 390)
+
+# 加强巡查：好友列表预滑动坐标范围（x 固定，y 随机）。
+_ENHANCED_PATROL_SWIPE_X_RANGE = (230, 300)
+_ENHANCED_PATROL_SWIPE_START_Y_RANGE = (770, 800)
+_ENHANCED_PATROL_SWIPE_END_Y_RANGE = (15, 45)
 # 偷取统计金额 token 正则：支持纯数字/小数/万单位，允许前导负号。
 STEAL_AMOUNT_TOKEN_PATTERN = re.compile(r'-?\d+(?:\.\d+)?(?:万)?')
 # 四格作物单独偷取图标模板匹配阈值。
@@ -159,6 +165,8 @@ class TaskFriend(TaskBase):
         help_only_guard_dog = self.task.friend.feature.help_only_guard_dog
         enable_accept_request = self.task.friend.feature.auto_accept_request
         enable_steal_stats = self.task.friend.feature.steal_stats
+        enhanced_patrol = bool(self.task.friend.feature.enhanced_patrol)
+        friend_list_swipe_count = int(self.task.friend.feature.friend_list_swipe_count)
         steal_time_range = normalize_task_enabled_time_range(self.task.friend.feature.steal_enabled_time_range)
         help_time_range = normalize_task_enabled_time_range(self.task.friend.feature.help_enabled_time_range)
         steal_limit_count = self._parse_limit_count(self.task.friend.feature.steal_limit_count)
@@ -168,13 +176,15 @@ class TaskFriend(TaskBase):
         self._help_only_guard_dog = bool(help_only_guard_dog)
         logger.info(
             (
-                '好友巡查: 开始 | 偷菜={} 帮忙={} 同意请求={} 偷取统计={} '
+                '好友巡查: 开始 | 偷菜={} 帮忙={} 同意请求={} 偷取统计={} 加强巡查={} 滑动次数={} '
                 '调度时段={} 偷菜时段={} 帮忙时段={} 偷菜上限={} 帮忙上限={} 只帮护主犬={}'
             ),
             enable_steal,
             enable_help,
             enable_accept_request,
             enable_steal_stats,
+            enhanced_patrol,
+            friend_list_swipe_count,
             self._task_enabled_time_range,
             steal_time_range,
             help_time_range,
@@ -190,6 +200,8 @@ class TaskFriend(TaskBase):
 
         # 进入好友列表页
         self.ui.ui_ensure(page_friend_list)
+        if enhanced_patrol:
+            self._run_enhanced_patrol(friend_list_swipe_count)
         # 处理微信好友请求
         if enable_accept_request:
             self.accept_friend()
@@ -210,6 +222,25 @@ class TaskFriend(TaskBase):
         logger.info('好友巡查: 结束')
 
         return self.ok()
+
+    def _run_enhanced_patrol(self, swipe_count: int) -> None:
+        """加强巡查：快速滑动好友列表指定次数后关闭并重新打开列表。"""
+        swipe_count = max(0, int(swipe_count))
+        if swipe_count <= 0:
+            return
+        logger.info('好友巡查: 加强巡查预滑动 | 次数={}', swipe_count)
+        x_min, x_max = _ENHANCED_PATROL_SWIPE_X_RANGE
+        y_start_min, y_start_max = _ENHANCED_PATROL_SWIPE_START_Y_RANGE
+        y_end_min, y_end_max = _ENHANCED_PATROL_SWIPE_END_Y_RANGE
+        for _ in range(swipe_count):
+            x = random.randint(x_min, x_max)
+            y_start = random.randint(y_start_min, y_start_max)
+            y_end = random.randint(y_end_min, y_end_max)
+            self.ui.device.swipe((x, y_start), (x, y_end), speed=120, delay=0.0, hold=0.0)
+        logger.info('好友巡查: 加强巡查预滑动完成，关闭并重新打开好友列表')
+        self.ui.device.click_button(BTN_CLOSE)
+        self.ui.device.sleep(0.5)
+        self.ui.ui_ensure(page_friend_list)
 
     def _run_friend_progressive(
         self,

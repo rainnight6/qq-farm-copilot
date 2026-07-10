@@ -60,7 +60,9 @@
         "help_limit_count": 0,
         "auto_accept_request": true,
         "blacklist": [],
-        "steal_stats": false
+        "steal_stats": false,
+        "enhanced_patrol": false,
+        "friend_list_swipe_count": 15
       }
     },
     "grass": {

@@ -59,6 +59,8 @@ class FriendFeatures:
     auto_accept_request: bool = True
     blacklist: list[str] = field(default_factory=list)
     steal_stats: bool = False
+    enhanced_patrol: bool = False
+    friend_list_swipe_count: int = 15
 
 
 @dataclass(slots=True)

@@ -31,6 +31,8 @@
       "help_limit_count": "次数限制",
       "auto_accept_request": "同意好友请求",
       "blacklist": "好友黑名单",
+      "enhanced_patrol": "加强巡查",
+      "friend_list_swipe_count": "滑动次数",
       "auto_fertilize": "施肥",
       "maturity_threshold_seconds": "成熟时间阈值",
       "auto_buy_fertilizer": "自动购买肥料",
@@ -52,6 +54,7 @@
     "feature_hints": {
       "reward.claim_growth_task": "QQ平台会直接领取",
       "friend.steal_stats": "开启后偷取会变慢",
+      "friend.enhanced_patrol": "开启后每次巡查前先快速滑动好友列表指定次数（不建议开启，对萌新太残忍）",
       "main.auto_upgrade": "需要开启土地巡查任务",
       "main.auto_fertilize": "需要开启土地巡查任务",
       "main.maturity_threshold_seconds": "仅对成熟倒计时小于该阈值的地块施肥",
