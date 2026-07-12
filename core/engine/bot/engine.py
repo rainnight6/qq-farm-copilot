@@ -16,7 +16,7 @@ from PIL import Image as PILImage
 from PyQt6.QtCore import QCoreApplication, QEventLoop, QObject, QTimer, pyqtSignal
 
 from core.engine.bot.worker import bot_worker_main
-from core.platform.window_manager import WindowManager
+from core.platform.window_manager import WindowInfo, WindowManager
 from models.config import AppConfig, RunMode, resolve_effective_run_mode
 
 

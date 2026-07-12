@@ -101,6 +101,12 @@ LAND_SCAN_POPUP_WAIT_TIMEOUT_SECONDS = 3.0
 LAND_SCAN_EXPAND_BRAND_RIGHT_ROI = (0, 420, 300, 700)
 # 左半阶段 BTN_EXPAND_BRAND 固定识别 ROI（x240-540, y460-700）。
 LAND_SCAN_EXPAND_BRAND_LEFT_ROI = (240, 460, 540, 700)
+# 左右锚点间距的合理范围（x 为 left - right，y 为高度差）。
+LAND_SCAN_ANCHOR_SPAN_X_MIN = -450
+LAND_SCAN_ANCHOR_SPAN_X_MAX = -300
+LAND_SCAN_ANCHOR_SPAN_Y_MAX = 100
+# 锚点间距异常时，从头重置缩放/回正的重试次数。
+LAND_SCAN_ANCHOR_PREPARE_MAX_RETRIES = 3
 
 
 class TaskLandScan(TaskMainActionsMixin, TaskBase):
@@ -110,6 +116,15 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         super().__init__(engine, ui)
         self.ocr_tool = ocr_tool
         self._ocr_disabled_logged = False
+
+    def _is_anchor_span_valid(self, span: tuple[int, int]) -> bool:
+        """判断左右锚点间距是否在合理范围内。"""
+        x_span, y_span = span
+        if not (LAND_SCAN_ANCHOR_SPAN_X_MIN <= x_span <= LAND_SCAN_ANCHOR_SPAN_X_MAX):
+            return False
+        if abs(y_span) > LAND_SCAN_ANCHOR_SPAN_Y_MAX:
+            return False
+        return True
 
     def run(self, rect: tuple[int, int, int, int]) -> TaskResult:
         """
@@ -128,43 +143,64 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         _ = rect
         logger.info('地块巡查: 开始')
         self.ui.ui_ensure(page_main)
-        self._reset_zoom_via_skin_page()
-        aligned = False
-        for attempt in range(3):
-            aligned = self.align_view_by_background_tree(log_prefix='地块巡查')
-            if aligned:
-                break
-            logger.warning('地块巡查: 画面回正失败，清理弹窗后重试 | attempt={}', attempt + 1)
-            self.ui.device.click_button(GOTO_MAIN)
-            self.ui.device.sleep(0.5)
-        if not aligned:
-            logger.warning('地块巡查: 画面回正多次失败，继续尝试执行')
         right_swipe_times = int(self.config.planting.land_swipe_right_times)
         left_swipe_times = int(self.config.planting.land_swipe_left_times)
         logger.info('地块巡查: 滑动次数 | 右滑={} 左滑={}', right_swipe_times, left_swipe_times)
         if left_swipe_times <= 0:
             logger.warning('地块巡查: 左滑次数为 0，将只扫描右半部分地块')
-        # self.ui.device.click_button(GOTO_MAIN)
 
         # 在回正状态下同时识别左右锚点并记录日志，侧滑后统一使用固定基线 span 推断对侧锚点。
-        self.ui.device.sleep(0.2)
-        self.ui.device.screenshot()
-        full_right_anchor = self.appear_land_right(offset=(-30, -30, 160, 30), threshold=0.8, static=False)
-        full_left_anchor = self.ui.appear_location(
-            BTN_LAND_LEFT, offset=(-160, -30, 30, 30), threshold=0.8, static=False
-        )
-        logger.info(
-            '地块巡查: 初始锚点识别 | 右锚点={} 左锚点={}',
-            full_right_anchor,
-            full_left_anchor,
-        )
+        # 若间距异常（如锚点识别错误），则从头重置缩放并重新回正、识别，最多重试 N 次。
         anchor_span: tuple[int, int] | None = None
-        if full_right_anchor is not None and full_left_anchor is not None:
-            anchor_span = (
+        for prep_attempt in range(LAND_SCAN_ANCHOR_PREPARE_MAX_RETRIES):
+            self._reset_zoom_via_skin_page()
+            aligned = False
+            for attempt in range(3):
+                aligned = self.align_view_by_background_tree(log_prefix='地块巡查')
+                if aligned:
+                    break
+                logger.warning('地块巡查: 画面回正失败，清理弹窗后重试 | attempt={}', attempt + 1)
+                self.ui.device.click_button(GOTO_MAIN)
+                self.ui.device.sleep(0.5)
+            if not aligned:
+                logger.warning('地块巡查: 画面回正多次失败，继续尝试执行')
+
+            self.ui.device.sleep(0.2)
+            self.ui.device.screenshot()
+            full_right_anchor = self.appear_land_right(offset=(-30, -30, 160, 30), threshold=0.8, static=False)
+            full_left_anchor = self.ui.appear_location(
+                BTN_LAND_LEFT, offset=(-160, -30, 30, 30), threshold=0.8, static=False
+            )
+            logger.info(
+                '地块巡查: 初始锚点识别 | 右锚点={} 左锚点={}',
+                full_right_anchor,
+                full_left_anchor,
+            )
+            if full_right_anchor is None or full_left_anchor is None:
+                logger.warning(
+                    '地块巡查: 锚点识别不全，准备重置缩放后重试 | attempt={}/{}',
+                    prep_attempt + 1,
+                    LAND_SCAN_ANCHOR_PREPARE_MAX_RETRIES,
+                )
+                continue
+
+            span = (
                 int(full_left_anchor[0] - full_right_anchor[0]),
                 int(full_left_anchor[1] - full_right_anchor[1]),
             )
-            logger.info('地块巡查: 实测左右锚点间距={}', anchor_span)
+            logger.info('地块巡查: 实测左右锚点间距={}', span)
+            if self._is_anchor_span_valid(span):
+                anchor_span = span
+                break
+            logger.warning(
+                '地块巡查: 左右锚点间距异常，准备重置缩放后重试 | span={} attempt={}/{}',
+                span,
+                prep_attempt + 1,
+                LAND_SCAN_ANCHOR_PREPARE_MAX_RETRIES,
+            )
+
+        if anchor_span is None:
+            logger.warning('地块巡查: 多次重试后仍未获得有效锚点间距，将不使用固定 span 推断对侧锚点')
 
         try:
             # 右滑：手指从 P1 滑向 P2，画面向右侧移动，露出右侧地块
@@ -329,7 +365,9 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
         while 1:
             self.ui.device.screenshot()
             if anchor_button == BTN_LAND_RIGHT:
-                location = self.appear_land_right(offset=target_offset, threshold=0.9, static=False)
+                location = self.appear_land_right(
+                    offset=target_offset, threshold=0.9, fallback_threshold=0.87, static=False
+                )
             else:
                 location = self.ui.appear_location(anchor_button, offset=target_offset, threshold=0.9, static=False)
             current_anchor: tuple[int, int] | None = None

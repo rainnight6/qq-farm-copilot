@@ -269,13 +269,15 @@ class TaskBase:
         self,
         offset: int | tuple[int, int, int, int] = (-30, -30, 160, 30),
         threshold: float = 0.9,
+        fallback_threshold: float | None = None,
         static: bool = False,
     ) -> tuple[int, int] | None:
-        """识别右锚点；主模板和备用模板同时匹配，返回置信度更高的命中结果。"""
+        """识别右锚点；主模板和备用模板分别按各自阈值匹配，若同时命中则返回置信度更高的结果。"""
         from core.ui.assets import BTN_LAND_RIGHT, BTN_LAND_RIGHT_2
 
+        fb_threshold = threshold if fallback_threshold is None else fallback_threshold
         primary = self.ui.appear_location(BTN_LAND_RIGHT, offset=offset, threshold=threshold, static=static)
-        fallback = self.ui.appear_location(BTN_LAND_RIGHT_2, offset=offset, threshold=threshold, static=static)
+        fallback = self.ui.appear_location(BTN_LAND_RIGHT_2, offset=offset, threshold=fb_threshold, static=static)
         if primary is not None and fallback is not None:
             primary_score = BTN_LAND_RIGHT._last_score
             fallback_score = BTN_LAND_RIGHT_2._last_score
