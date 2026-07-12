@@ -304,9 +304,9 @@ class TaskMain(
                         logger.info('自动播种: 实例处于降级运行状态，跳过补种')
                     else:
                         self._sync_player_level_before_plant()
-                        plant_result = self._run_feature_plant()
-                        if plant_result.did_plant:
-                            self._trigger_land_scan_after_plant()
+                        self._run_feature_plant()
+                # 无论是否补种，施肥收获后地块状态都可能变化，触发一次巡查
+                self._trigger_land_scan_after_plant()
 
         # 自动升级
         if features.auto_upgrade:

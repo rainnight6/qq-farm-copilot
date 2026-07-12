@@ -8,12 +8,11 @@ from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
-from utils.app_paths import instance_screenshots_dir
-
 from core.base.timer import Timer
 from core.ui.assets import *
 from core.ui.page import GOTO_MAIN, page_main, page_mall
 from models.farm_state import ActionType
+from utils.app_paths import instance_screenshots_dir
 from utils.land_grid import get_lands_from_land_anchor
 from utils.ocr_utils import OCRItem
 
@@ -221,6 +220,11 @@ class TaskMainActionsMixin:
         """自动施肥：按土地巡查数据筛选地块并执行施肥。"""
         features = self.task.main.feature
         if not features.auto_fertilize:
+            return None
+
+        land_scan_cfg = self.config.tasks.get('land_scan')
+        if land_scan_cfg is None or not land_scan_cfg.enabled:
+            logger.info('自动施肥: 地块巡查未开启，跳过施肥')
             return None
 
         skip_rounds = int(self.config.planting.skip_fertilize_after_seed_rounds)
