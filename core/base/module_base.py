@@ -595,8 +595,9 @@ class ModuleBase:
 
         button_offset = getattr(button, '_button_offset', None)
         if not button_offset:
-            logger.warning(f"Button '{button.name}' matched but no offset recorded")
-            return None
+            # 静态匹配或色差命中时不记录动态偏移；命中按钮仍在设计位置附近，
+            # 返回设计中心坐标以保持 appear_location 语义一致。
+            return button.location
 
         x1, y1, x2, y2 = button_offset
         return (int(x1 + x2) // 2, int(y1 + y2) // 2)
