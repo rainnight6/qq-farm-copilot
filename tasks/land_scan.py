@@ -366,7 +366,7 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
             self.ui.device.screenshot()
             if anchor_button == BTN_LAND_RIGHT:
                 location = self.appear_land_right(
-                    offset=target_offset, threshold=0.9, fallback_threshold=0.87, static=False
+                    offset=target_offset, threshold=0.9, fallback_threshold=0.85, static=False
                 )
             else:
                 location = self.ui.appear_location(anchor_button, offset=target_offset, threshold=0.9, static=False)
