@@ -62,7 +62,11 @@ BTN_QIANXING_105 = Button(area={'qq': (423, 901, 484, 944), 'wechat': (423, 901,
 BTN_QIANXING_106 = Button(area={'qq': (375, 787, 429, 817), 'wechat': (375, 787, 429, 817)}, color={'qq': (138, 207, 237), 'wechat': (138, 207, 237)}, button={'qq': (375, 787, 429, 817), 'wechat': (375, 787, 429, 817)}, file={'qq': 'templates/qq/event/btn_qianxing_106.png', 'wechat': 'templates/qq/event/btn_qianxing_106.png'}, name='btn_qianxing_106')
 BTN_QIANXING_107 = Button(area={'qq': (69, 355, 110, 391), 'wechat': (69, 355, 110, 391)}, color={'qq': (99, 146, 193), 'wechat': (99, 146, 193)}, button={'qq': (69, 355, 110, 391), 'wechat': (69, 355, 110, 391)}, file={'qq': 'templates/qq/event/btn_qianxing_107.png', 'wechat': 'templates/qq/event/btn_qianxing_107.png'}, name='btn_qianxing_107')
 BTN_QIANXING_108 = Button(area={'qq': (375, 787, 429, 817), 'wechat': (375, 787, 429, 817)}, color={'qq': (138, 207, 237), 'wechat': (138, 207, 237)}, button={'qq': (375, 787, 429, 817), 'wechat': (375, 787, 429, 817)}, file={'qq': 'templates/qq/event/btn_qianxing_108.png', 'wechat': 'templates/qq/event/btn_qianxing_108.png'}, name='btn_qianxing_108')
-BTN_QIANXING_109 = Button(area={'qq': (12, 61, 44, 112), 'wechat': (12, 61, 44, 112)}, color={'qq': (124, 195, 236), 'wechat': (124, 195, 236)}, button={'qq': (12, 61, 44, 112), 'wechat': (12, 61, 44, 112)}, file={'qq': 'templates/qq/event/btn_qianxing_109.png', 'wechat': 'templates/qq/event/btn_qianxing_109.png'}, name='btn_qianxing_109')
+BTN_QIANXING_109 = Button(area={'qq': (72, 266, 111, 297), 'wechat': (72, 266, 111, 297)}, color={'qq': (105, 151, 196), 'wechat': (105, 151, 196)}, button={'qq': (72, 266, 111, 297), 'wechat': (72, 266, 111, 297)}, file={'qq': 'templates/qq/event/btn_qianxing_109.png', 'wechat': 'templates/qq/event/btn_qianxing_109.png'}, name='btn_qianxing_109')
+BTN_QIANXING_110 = Button(area={'qq': (70, 446, 112, 475), 'wechat': (70, 446, 112, 475)}, color={'qq': (98, 146, 193), 'wechat': (98, 146, 193)}, button={'qq': (70, 446, 112, 475), 'wechat': (70, 446, 112, 475)}, file={'qq': 'templates/qq/event/btn_qianxing_110.png', 'wechat': 'templates/qq/event/btn_qianxing_110.png'}, name='btn_qianxing_110')
+BTN_QIANXING_111 = Button(area={'qq': (375, 787, 429, 817), 'wechat': (375, 787, 429, 817)}, color={'qq': (138, 207, 237), 'wechat': (138, 207, 237)}, button={'qq': (375, 787, 429, 817), 'wechat': (375, 787, 429, 817)}, file={'qq': 'templates/qq/event/btn_qianxing_111.png', 'wechat': 'templates/qq/event/btn_qianxing_111.png'}, name='btn_qianxing_111')
+BTN_QIANXING_112 = Button(area={'qq': (70, 536, 112, 566), 'wechat': (70, 536, 112, 566)}, color={'qq': (110, 155, 198), 'wechat': (110, 155, 198)}, button={'qq': (70, 536, 112, 566), 'wechat': (70, 536, 112, 566)}, file={'qq': 'templates/qq/event/btn_qianxing_112.png', 'wechat': 'templates/qq/event/btn_qianxing_112.png'}, name='btn_qianxing_112')
+BTN_QIANXING_113 = Button(area={'qq': (375, 787, 429, 817), 'wechat': (375, 787, 429, 817)}, color={'qq': (138, 207, 237), 'wechat': (138, 207, 237)}, button={'qq': (375, 787, 429, 817), 'wechat': (375, 787, 429, 817)}, file={'qq': 'templates/qq/event/btn_qianxing_113.png', 'wechat': 'templates/qq/event/btn_qianxing_113.png'}, name='btn_qianxing_113')
 BTN_QQSVIP = Button(area={'qq': (112, 148, 133, 179), 'wechat': (112, 148, 133, 179)}, color={'qq': (133, 103, 69), 'wechat': (133, 103, 69)}, button={'qq': (112, 148, 133, 179), 'wechat': (112, 148, 133, 179)}, file={'qq': 'templates/qq/btn/btn_qqsvip.png', 'wechat': 'templates/qq/btn/btn_qqsvip.png'}, name='btn_qqsvip')
 BTN_QQSVIP_CHECK = Button(area={'qq': (194, 265, 289, 283), 'wechat': (194, 265, 289, 283)}, color={'qq': (225, 188, 165), 'wechat': (225, 188, 165)}, button={'qq': (194, 265, 289, 283), 'wechat': (194, 265, 289, 283)}, file={'qq': 'templates/qq/btn/btn_qqsvip_check.png', 'wechat': 'templates/qq/btn/btn_qqsvip_check.png'}, name='btn_qqsvip_check')
 BTN_SHARE_GREEN = Button(area={'qq': (356, 753, 406, 778), 'wechat': (356, 753, 406, 778)}, color={'qq': (178, 195, 76), 'wechat': (178, 195, 76)}, button={'qq': (356, 753, 406, 778), 'wechat': (356, 753, 406, 778)}, file={'qq': 'templates/qq/btn/btn_share_green.png', 'wechat': 'templates/qq/btn/btn_share_green.png'}, name='btn_share_green')
@@ -195,6 +199,10 @@ ASSET_NAME_TO_CONST = {
     'btn_qianxing_107': BTN_QIANXING_107,
     'btn_qianxing_108': BTN_QIANXING_108,
     'btn_qianxing_109': BTN_QIANXING_109,
+    'btn_qianxing_110': BTN_QIANXING_110,
+    'btn_qianxing_111': BTN_QIANXING_111,
+    'btn_qianxing_112': BTN_QIANXING_112,
+    'btn_qianxing_113': BTN_QIANXING_113,
     'btn_qqsvip': BTN_QQSVIP,
     'btn_qqsvip_check': BTN_QQSVIP_CHECK,
     'BTN_SEED_SELECT_POPUP_RIGHT': BTN_SEED_SELECT_POPUP_RIGHT,
