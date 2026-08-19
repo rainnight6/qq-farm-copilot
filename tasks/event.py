@@ -217,7 +217,7 @@ class TaskEvent(TaskBase):
                 continue
         return None
 
-    DEFAULT_THRESHOLD = 0.86
+    DEFAULT_THRESHOLD = 0.8
 
     def _resolve_buttons(self, feature) -> list[tuple[str, Button | None, float, bool, float]]:
         """根据配置解析出需要点击的资源按钮列表、点击后延迟、是否点击顶部及置信度阈值。"""
