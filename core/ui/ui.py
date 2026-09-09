@@ -8,7 +8,7 @@ from loguru import logger
 
 from core.base.timer import Timer
 from core.exceptions import GamePageUnknownError, LoginRecoveryRequiredError
-from core.ui.assets import BTN_LOGIN_AGAIN
+from core.ui.assets import BTN_LOGIN_AGAIN, MENU_GOTO_MAIL
 from core.ui.page import *
 from core.vision.cv_detector import CVDetector
 from models.config import AppConfig
@@ -16,6 +16,9 @@ from tasks.handler import Handler
 
 if TYPE_CHECKING:
     from core.platform.device import Device
+
+# 菜单 -> 邮箱入口识别 ROI：设计区域 (30, 486, 44, 505) 向上 160 / 向下 70 / 向左 50 / 向右 90 扩展。
+MENU_GOTO_MAIL_SEARCH_ROI = (-20, 326, 134, 575)
 
 
 class UI(Handler):
@@ -195,6 +198,13 @@ class UI(Handler):
                 # 导致点击落点偏离实际按钮。
                 button._button_offset = None
                 logger.info(f'页面切换: {page.cn_name} -> {page.parent.cn_name}')
+                if button is MENU_GOTO_MAIL:
+                    # 邮件入口在菜单面板中会随条目数量上下漂移，改为在扩大 ROI 内
+                    # 动态识别模板并点击实际命中位置，避免固定坐标点空。
+                    if self.appear_then_click_in_roi(button, MENU_GOTO_MAIL_SEARCH_ROI, threshold=0.8, interval=1):
+                        clicked = True
+                        break
+                    continue
                 if self.device.click_button(button):
                     clicked = True
                     break
