@@ -88,6 +88,7 @@ BTN_VIP_ERROR = Button(area={'qq': (226, 542, 314, 574), 'wechat': (226, 542, 31
 BTN_VISIT_FIRST = Button(area={'qq': (443, 295, 480, 314), 'wechat': (443, 295, 480, 314)}, color={'qq': (183, 195, 99), 'wechat': (183, 195, 99)}, button={'qq': (443, 295, 480, 314), 'wechat': (443, 295, 480, 314)}, file={'qq': 'templates/qq/btn/btn_visit_first.png', 'wechat': 'templates/qq/btn/btn_visit_first.png'}, name='btn_visit_first')
 BTN_WAREHOUSE_SEED_20_EMPTY = Button(area={'qq': (424, 522, 508, 615), 'wechat': (424, 522, 508, 615)}, color={'qq': (239, 214, 169), 'wechat': (239, 214, 169)}, button={'qq': (424, 522, 508, 615), 'wechat': (424, 522, 508, 615)}, file={'qq': 'templates/qq/btn/btn_warehouse_seed_20_empty.png', 'wechat': 'templates/qq/btn/btn_warehouse_seed_20_empty.png'}, name='btn_warehouse_seed_20_empty')
 BTN_WITHERED = Button(area={'qq': (336, 475, 348, 490), 'wechat': (336, 475, 348, 490)}, color={'qq': (107, 96, 51), 'wechat': (107, 96, 51)}, button={'qq': (336, 475, 348, 490), 'wechat': (336, 475, 348, 490)}, file={'qq': 'templates/qq/btn/btn_withered.png', 'wechat': 'templates/qq/btn/btn_withered.png'}, name='btn_withered')
+CURRENCIES = Button(area={'qq': (405, 151, 482, 176), 'wechat': (405, 151, 482, 176)}, color={'qq': (215, 203, 189), 'wechat': (215, 203, 189)}, button={'qq': (405, 151, 482, 176), 'wechat': (405, 151, 482, 176)}, file={'qq': 'templates/qq/ui/currencies.png', 'wechat': 'templates/qq/ui/currencies.png'}, name='currencies')
 FRIEND_CHECK = Button(area={'qq': (241, 69, 299, 98), 'wechat': (241, 69, 299, 98)}, color={'qq': (225, 186, 159), 'wechat': (225, 186, 159)}, button={'qq': (241, 69, 299, 98), 'wechat': (241, 69, 299, 98)}, file={'qq': 'templates/qq/ui/friend_check.png', 'wechat': 'templates/qq/ui/friend_check.png'}, name='friend_check')
 GIFT_PACK_CARD = Button(area={'qq': (165, 920, 247, 942), 'wechat': (165, 920, 247, 942)}, color={'qq': (182, 144, 109), 'wechat': (182, 144, 109)}, button={'qq': (165, 920, 247, 942), 'wechat': (165, 920, 247, 942)}, file={'qq': 'templates/qq/btn/gift_pack_card.png', 'wechat': 'templates/qq/btn/gift_pack_card.png'}, name='gift_pack_card')
 ICON_FARMING_IN_FRIEND_LIST = Button(area={'qq': (0, 0, 22, 22), 'wechat': (0, 0, 22, 22)}, color={'qq': (181, 167, 137), 'wechat': (181, 167, 137)}, button={'qq': (0, 0, 22, 22), 'wechat': (0, 0, 22, 22)}, file={'qq': 'templates/qq/icon/icon_farming_in_friend_list.png', 'wechat': 'templates/qq/icon/icon_farming_in_friend_list.png'}, name='icon_farming_in_friend_list')
@@ -236,6 +237,7 @@ ASSET_NAME_TO_CONST = {
     'btn_visit_first': BTN_VISIT_FIRST,
     'btn_warehouse_seed_20_empty': BTN_WAREHOUSE_SEED_20_EMPTY,
     'btn_withered': BTN_WITHERED,
+    'currencies': CURRENCIES,
     'friend_check': FRIEND_CHECK,
     'gift_pack_card': GIFT_PACK_CARD,
     'icon_farming_in_friend_list': ICON_FARMING_IN_FRIEND_LIST,

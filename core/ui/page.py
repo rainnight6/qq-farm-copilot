@@ -54,6 +54,9 @@ page_main = Page('page_main', (MAIN_GOTO_FRIEND, MAIN_GOTO_MENU), cn_name='主�
 page_unknown = Page('page_unknown', None, cn_name='未知页面')
 page_unknown.link(button=GOTO_MAIN, destination=page_main)
 
+page_currencies = Page('page_currencies', CURRENCIES, cn_name='货币')
+page_currencies.link(button=GOTO_MAIN, destination=page_main)
+
 page_menu = Page('page_menu', SETTING_CHECK, cn_name='菜单')
 page_mail = Page('page_mail', MAIL_CHECK, cn_name='邮箱')
 page_share = Page('page_share', SHARE_CHECK, cn_name='分享')

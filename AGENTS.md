@@ -44,6 +44,7 @@
 - 窗口选择：`config.window_select_rule` 仅保存匹配顺序（`auto` / `index:N`），不保存 `hwnd`
 - 窗口定位：`config.planting.window_screen_index` 保存目标屏幕序号（与显示器查询序号一致；`0` 表示默认主屏）；`config.planting.window_position` 保存该屏幕内的位置锚点（左中/居中/右中/四角）；`config.planting.virtual_desktop_index` 保存目标虚拟桌面序号（`0` 表示不移动，`1+` 表示目标桌面）
 - 视觉按钮来源：`core/ui/assets.py`（由 `tools/button_extract.py` 生成）
+- 货币小页面：`page_currencies`（检测标志 `CURRENCIES`，在 `ui_pages` 中优先级高于 `page_main`，经 `GOTO_MAIN` 固定坐标回主；避免货币小页面遮住商城入口后误判主页形成死循环）
 - 版本来源：`utils/version.py::APP_VERSION`（Release 打包前由 `tools/write_version.py --tag <tag>` 自动写入）
 - 更新检查：读取 GitHub `releases/latest`；启动后自动检查一次，之后每 `6` 小时检查一次；有更新时左侧“设置”图标显示红点
 
@@ -137,7 +138,7 @@
 : 页面识别（未知页会尝试回主+清弹窗）。
 
 - `ui.ui_goto(page)` / `ui.ui_ensure(page)`
-: 页面导航与确保到达。
+: 页面导航与确保到达。导航循环按 `ui_pages` 列表优先级顺序遍历（不能用 set 顺序）；`ui_pages` 中越靠前者优先级越高（如 `page_currencies` 高于 `page_main`）。
 
 - `ui.ui_additional()`
 : 统一弹窗处理入口（等级、奖励、公告等）。

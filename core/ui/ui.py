@@ -31,6 +31,7 @@ class UI(Handler):
 
     ui_pages = [
         page_unknown,
+        page_currencies,
         page_main,
         page_shop,
         page_friend_list,
@@ -183,7 +184,12 @@ class UI(Handler):
 
             clicked = False
             # 在可达集合内寻找“当前出现页面 -> parent”的跳转按钮并执行单步切换。
-            for page in visited:
+            # 必须按 ui_pages 优先级顺序遍历（visited 是 set，哈希序不稳定）：
+            # 例如货币小页面盖住商城入口时 page_currencies 与 page_main 会同时命中，
+            # 若先点 page_main 的 MAIN_GOTO_MALL 会被遮住形成死循环，需先处理高优先级页面。
+            for page in self.ui_pages:
+                if page not in visited:
+                    continue
                 if not page.parent:
                     continue
                 page_switch_key = f'ui_goto_page::{page.name}'
