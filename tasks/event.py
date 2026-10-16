@@ -17,37 +17,39 @@ if TYPE_CHECKING:
 
 
 # 当期活动默认配置
-DEFAULT_ACTIVITY_NAME = '心许千灯星垂野'
-DEFAULT_DAILY_TIMES = ['00:01']
+DEFAULT_ACTIVITY_NAME = '奶茶热销中'
+DEFAULT_DAILY_TIMES = ['00:01','04:01','08:01','12:01','16:01','20:01']
 DEFAULT_RESOURCES = [
-    'btn_qianxing_100:threshold=0.74',  # 兼容微信的字体
-    'btn_qianxing_101',
-    'btn_qianxing_102',
+    'btn_naicha_100:threshold=0.74',  # 兼容微信的字体
+    'btn_naicha_101',
+    'btn_naicha_102',
     'EVENT_TOP_TAP_1',
-    'btn_qianxing_103',
-    'btn_qianxing_104',
     'EVENT_TOP_TAP_2',
-    'btn_qianxing_105',
+    'btn_naicha_103',
+    'btn_naicha_104',
+    'btn_naicha_105',
 
-    'btn_qianxing_109',
-    'btn_qianxing_106',
+    'btn_naicha_106',
+    'btn_naicha_107',
+    'btn_naicha_108',
+
+    'btn_naicha_109',
+    'btn_naicha_110',
+    'btn_naicha_111',
+
+    'btn_naicha_112',
+    'btn_naicha_113',
+    'btn_naicha_114',
+
+    'btn_naicha_115',
+    'btn_naicha_116',
+    'btn_naicha_117',
     'EVENT_TOP_TAP_3',
 
-    'btn_qianxing_107',
-    'btn_qianxing_108',
-    'EVENT_TOP_TAP_4',
-
-    'btn_qianxing_110',
-    'btn_qianxing_111',
-    'EVENT_TOP_TAP_5',
-
-    'btn_qianxing_112',
-    'btn_qianxing_113',
-    'EVENT_TOP_TAP_6',
-    'EVENT_POINT_TAP_30_87',  # 左上角返回主页面
+    'btn_naicha_118'
 ]
 
-DEFAULT_END_TIME = '2026-08-28 00:00:00'
+DEFAULT_END_TIME = '2026-11-15 00:00:00'
 CLICK_ANIMATION_DELAY = 1.0
 # 顶部偏上位置的点击坐标，用于关闭某些活动弹窗。
 TOP_TAP_POINT = (270, 80)

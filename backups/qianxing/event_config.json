@@ -1,0 +1,30 @@
+{
+  "_comment": "上期活动默认配置备份（tasks/event.py 中的 DEFAULT_*）。复用时：1) 将 templates/qq/event/ 下的 png 拷回项目 templates/qq/event/；2) 运行 python tools/button_extract.py 重新生成 core/ui/assets.py；3) 将以下值写回 tasks/event.py 的 DEFAULT_ACTIVITY_NAME / DEFAULT_DAILY_TIMES / DEFAULT_RESOURCES / DEFAULT_END_TIME。",
+  "activity_name": "心许千灯星垂野",
+  "daily_times": ["00:01"],
+  "resources": [
+    "btn_qianxing_100:threshold=0.74",
+    "btn_qianxing_101",
+    "btn_qianxing_102",
+    "EVENT_TOP_TAP_1",
+    "btn_qianxing_103",
+    "btn_qianxing_104",
+    "EVENT_TOP_TAP_2",
+    "btn_qianxing_105",
+    "btn_qianxing_109",
+    "btn_qianxing_106",
+    "EVENT_TOP_TAP_3",
+    "btn_qianxing_107",
+    "btn_qianxing_108",
+    "EVENT_TOP_TAP_4",
+    "btn_qianxing_110",
+    "btn_qianxing_111",
+    "EVENT_TOP_TAP_5",
+    "btn_qianxing_112",
+    "btn_qianxing_113",
+    "EVENT_TOP_TAP_6",
+    "EVENT_POINT_TAP_30_87"
+  ],
+  "end_time": "2026-08-28 00:00:00",
+  "notes": "btn_qianxing_100 使用 threshold=0.74 兼容微信字体；EVENT_TOP_TAP_x 为点击顶部区域关闭弹窗；EVENT_POINT_TAP_30_87 为左上角返回主页面坐标点。"
+}

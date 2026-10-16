@@ -19,6 +19,9 @@ from core.ui.assets import (
     BTN_MONTHLY_CARD_END_2,
     BTN_ONECLICK_OPEN,
     BTN_QQSVIP,
+    GIFT_PACK_CARD,
+    VIP_MALL_CARD,
+    BTN_VIP_ERROR
 )
 from core.ui.page import page_mail, page_main, page_mall
 from tasks.base import TaskBase
@@ -86,6 +89,9 @@ class TaskGift(TaskBase):
             else:
                 confirm_timer.clear()
         logger.info('领取流程: QQSVIP礼包流程结束')
+        self._switch_mall_tab(VIP_MALL_CARD, '专属商城')
+        if self._wait_mall_free_loaded(timeout=3.0):
+            self._claim_mall_free()
         return
 
     def _run_mall_gift(self):
@@ -95,6 +101,7 @@ class TaskGift(TaskBase):
         for attempt in range(1, max_attempts + 1):
             logger.info('领取流程: 进入商城 | attempt={}/{}', attempt, max_attempts)
             self.ui.ui_ensure(page_mall, confirm_wait=0.5)
+            self._switch_mall_tab(GIFT_PACK_CARD, '礼包商城')
             if self._wait_mall_free_loaded(timeout=3.0):
                 logger.info('领取流程: 商城内容已加载 | attempt={}', attempt)
                 self._claim_mall_free()
@@ -105,6 +112,19 @@ class TaskGift(TaskBase):
                 logger.info('领取流程: 返回主页面重试')
                 self.ui.ui_ensure(page_main, confirm_wait=0.3)
         logger.warning('领取流程: 商城领取重试次数用完')
+
+    def _switch_mall_tab(self, card_button, desc: str) -> None:
+        """点击商城页签切换子商城，直到免费商品按钮或已领取标记出现。"""
+        for _ in range(4):
+            self.ui.device.screenshot()
+            if self.ui.appear(BTN_MALL_FREE_DONE, threshold=0.65, offset=30) or self.ui.appear(
+                BTN_MALL_FREE, threshold=0.65, offset=30
+            ):
+                return
+            if self.ui.appear_then_click(card_button, offset=30, interval=1):
+                logger.info('领取流程: 点击页签切换 | tab={}', desc)
+                continue
+            return
 
     def _wait_mall_free_loaded(self, timeout: float = 3.0) -> bool:
         """等待商城免费物品按钮或已领取标记出现。"""
@@ -124,6 +144,8 @@ class TaskGift(TaskBase):
             self.ui.device.screenshot()
             if self.ui.handle_click_close():
                 continue
+            if self.ui.appear(BTN_VIP_ERROR, threshold=0.65, offset=30):
+                break
             if self.ui.appear(BTN_MALL_FREE_DONE, threshold=0.65, offset=30):
                 break
             if self.ui.appear_then_click(BTN_MALL_FREE, offset=30, threshold=0.65, interval=1):
