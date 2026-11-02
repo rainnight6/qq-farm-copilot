@@ -198,6 +198,7 @@ class TaskMainPlantingMixin(TaskMainBuySeedMixin):
             return []
 
         priority = {
+            'icon_land_blue': 60,
             'icon_land_amethyst': 50,
             'icon_land_gold': 40,
             'icon_land_gold_2': 40,

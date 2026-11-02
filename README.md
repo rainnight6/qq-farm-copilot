@@ -167,7 +167,7 @@ python main.py
 - `recovery`：异常恢复策略；`task_restart_attempts`（任务异常重启窗口次数）、`task_retry_delay_seconds`（重启后重试延迟秒数）、`window_launch_wait_timeout_seconds`（每轮等待窗口出现超时）、`startup_retry_step_sleep_seconds`（启动重试轮询步进）、`startup_stabilize_timeout_seconds`（启动收敛总超时）
 - `notification`：异常通知配置；`exception_notify_enabled`（是否在异常停机时推送通知）、`win_toast_enabled`（是否发送 Windows 本地通知，依赖 `winotify`）、`onepush_config`（可选 OnePush YAML 配置文本）
 - `executor.task_order`：任务固定顺序配置（示例：`land_scan>timed_harvest>main>friend>grass>sell>reward>gift>event>share>restart`）
-- `land`：农场详情配置；`land.plots` 为 24 格地块状态列表（元素：`{ "plot_id": "1-1", "level": "unbuilt|normal|red|black|gold|amethyst", "maturity_countdown": "HH:MM:SS", "countdown_sync_time": "YYYY-MM-DD HH:MM:SS", "need_upgrade": false, "need_planting": false }`）；`countdown_sync_time` 为该地块倒计时采样时间；`land.profile` 为个人信息（`level/gold/coupon/exp`，由等级同步 OCR 回写）
+- `land`：农场详情配置；`land.plots` 为 24 格地块状态列表（元素：`{ "plot_id": "1-1", "level": "unbuilt|normal|red|black|gold|amethyst|blue", "maturity_countdown": "HH:MM:SS", "countdown_sync_time": "YYYY-MM-DD HH:MM:SS", "need_upgrade": false, "need_planting": false }`）；`countdown_sync_time` 为该地块倒计时采样时间；`land.profile` 为个人信息（`level/gold/coupon/exp`，由等级同步 OCR 回写）
 - `tasks`：动态任务字典
 - `tasks.<task>.next_run`：任务下次执行时间（持久化到配置，默认 `2026-01-01 00:00`）
 - `tasks.<task>.enabled_time_range`：任务启用时间段（`HH:MM:SS-HH:MM:SS`，默认 `00:00:00-23:59:59`，仅 `INTERVAL` 生效）

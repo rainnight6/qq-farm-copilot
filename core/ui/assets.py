@@ -96,6 +96,7 @@ ICON_GUARD_DOG = Button(area={'qq': (0, 0, 15, 15), 'wechat': (0, 0, 15, 15)}, c
 ICON_ITEM_LOCKED = Button(area={'qq': (0, 0, 15, 16), 'wechat': (0, 0, 15, 16)}, color={'qq': (240, 196, 133), 'wechat': (240, 196, 133)}, button={'qq': (0, 0, 15, 16), 'wechat': (0, 0, 15, 16)}, file={'qq': 'templates/qq/icon/icon_item_locked.png', 'wechat': 'templates/qq/icon/icon_item_locked.png'}, name='icon_item_locked')
 ICON_LAND_AMETHYST = Button(area={'qq': (0, 0, 23, 15), 'wechat': (0, 0, 23, 15)}, color={'qq': (209, 168, 232), 'wechat': (209, 168, 232)}, button={'qq': (0, 0, 23, 15), 'wechat': (0, 0, 23, 15)}, file={'qq': 'templates/qq/land/icon_land_amethyst.png', 'wechat': 'templates/qq/land/icon_land_amethyst.png'}, name='icon_land_amethyst')
 ICON_LAND_BLACK = Button(area={'qq': (0, 0, 23, 15), 'wechat': (0, 0, 23, 15)}, color={'qq': (92, 67, 42), 'wechat': (92, 67, 42)}, button={'qq': (0, 0, 23, 15), 'wechat': (0, 0, 23, 15)}, file={'qq': 'templates/qq/land/icon_land_black.png', 'wechat': 'templates/qq/land/icon_land_black.png'}, name='icon_land_black')
+ICON_LAND_BLUE = Button(area={'qq': (0, 0, 23, 15), 'wechat': (0, 0, 23, 15)}, color={'qq': (166, 200, 250), 'wechat': (166, 200, 250)}, button={'qq': (0, 0, 23, 15), 'wechat': (0, 0, 23, 15)}, file={'qq': 'templates/qq/land/icon_land_blue.png', 'wechat': 'templates/qq/land/icon_land_blue.png'}, name='icon_land_blue')
 ICON_LAND_GOLD = Button(area={'qq': (0, 0, 19, 17), 'wechat': (0, 0, 19, 17)}, color={'qq': (249, 203, 50), 'wechat': (249, 203, 50)}, button={'qq': (0, 0, 19, 17), 'wechat': (0, 0, 19, 17)}, file={'qq': 'templates/qq/land/icon_land_gold.png', 'wechat': 'templates/qq/land/icon_land_gold.png'}, name='icon_land_gold')
 ICON_LAND_GOLD_2 = Button(area={'qq': (0, 0, 19, 17), 'wechat': (0, 0, 19, 17)}, color={'qq': (249, 204, 51), 'wechat': (249, 204, 51)}, button={'qq': (0, 0, 19, 17), 'wechat': (0, 0, 19, 17)}, file={'qq': 'templates/qq/land/icon_land_gold_2.png', 'wechat': 'templates/qq/land/icon_land_gold_2.png'}, name='icon_land_gold_2')
 ICON_LAND_RED = Button(area={'qq': (0, 0, 23, 15), 'wechat': (0, 0, 23, 15)}, color={'qq': (223, 87, 55), 'wechat': (223, 87, 55)}, button={'qq': (0, 0, 23, 15), 'wechat': (0, 0, 23, 15)}, file={'qq': 'templates/qq/land/icon_land_red.png', 'wechat': 'templates/qq/land/icon_land_red.png'}, name='icon_land_red')
@@ -245,6 +246,7 @@ ASSET_NAME_TO_CONST = {
     'icon_item_locked': ICON_ITEM_LOCKED,
     'icon_land_amethyst': ICON_LAND_AMETHYST,
     'icon_land_black': ICON_LAND_BLACK,
+    'icon_land_blue': ICON_LAND_BLUE,
     'icon_land_gold': ICON_LAND_GOLD,
     'icon_land_gold_2': ICON_LAND_GOLD_2,
     'icon_land_red': ICON_LAND_RED,

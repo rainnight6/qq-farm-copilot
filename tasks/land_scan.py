@@ -57,7 +57,7 @@ LAND_SCAN_TIME_PICK_Y2 = 20
 # 成熟时间文本正则（仅提取 HH:MM:SS）。
 LAND_SCAN_MATURITY_TIME_PATTERN = re.compile(r'(\d{2}:\d{2}:\d{2})')
 # 地块等级文本正则（中文等级关键词）。
-LAND_SCAN_LEVEL_PATTERN = re.compile(r'(未扩建|普通|紫晶|红|黑|金)')
+LAND_SCAN_LEVEL_PATTERN = re.compile(r'(未扩建|普通|紫晶|蓝晶|红|黑|金)')
 # 地块等级英文值到中文日志文案映射。
 LAND_SCAN_LEVEL_LABELS: dict[str, str] = {
     'unbuilt': '未扩建',
@@ -66,6 +66,7 @@ LAND_SCAN_LEVEL_LABELS: dict[str, str] = {
     'black': '黑土地',
     'gold': '金土地',
     'amethyst': '紫晶土地',
+    'blue': '蓝晶土地',
 }
 # 空地弹窗地块等级 OCR 区域：相对 BTN_LAND_POP_EMPTY 中心 (dx1, dy1, dx2, dy2)。
 LAND_SCAN_LEVEL_REGION_OFFSET = (-60, -50, 40, 50)
@@ -82,6 +83,7 @@ LAND_SCAN_PLOTTED_LEVEL_COLORS_RGB: dict[str, tuple[int, int, int]] = {
     'black': (92, 67, 42),
     'gold': (249, 203, 50),
     'amethyst': (209, 168, 232),
+    'blue': (166, 200, 250),
 }
 # 空地弹窗升级图标 ROI：相对 BTN_LAND_POP_EMPTY 中心 (dx1, dy1, dx2, dy2)。
 LAND_SCAN_UPGRADE_EMPTY_REGION_OFFSET = (-100, -50, 0, -0)
@@ -917,6 +919,8 @@ class TaskLandScan(TaskMainActionsMixin, TaskBase):
             return 'gold'
         if token == '紫晶':
             return 'amethyst'
+        if token == '蓝晶':
+            return 'blue'
         return ''
 
     @staticmethod
